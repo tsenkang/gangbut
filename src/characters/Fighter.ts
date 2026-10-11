@@ -153,10 +153,15 @@ export class Fighter {
   part(n: PartName) {
     return this.ragdoll.parts[n].body;
   }
+  /** Última posição conhecida (para quando o corpo já foi removido). */
+  private lastPos = new THREE.Vector3();
   pos(n: PartName = 'chest', out = new THREE.Vector3()) {
+    // Ler um corpo removido trava o Rapier: devolve a última posição.
+    if (this.removed) return out.copy(this.lastPos);
     return v3(this.part(n).translation(), out);
   }
   vel(n: PartName = 'chest', out = new THREE.Vector3()) {
+    if (this.removed) return out.set(0, 0, 0);
     return v3(this.part(n).linvel(), out);
   }
   fwd(out = new THREE.Vector3()) {
@@ -793,7 +798,9 @@ export class Fighter {
   }
 
   afterPhysics() {
-    if (!this.removed) this.links.capture();
+    if (this.removed) return;
+    this.links.capture();
+    v3(this.part('chest').translation(), this.lastPos);
   }
 
   /** Tira o lutador do jogo (caiu, desmaiou demais...). */
@@ -809,6 +816,7 @@ export class Fighter {
   /** Remove o corpo do mundo de física e o desenho da cena. */
   removeFromWorld() {
     if (this.removed) return;
+    v3(this.part('chest').translation(), this.lastPos);
     this.removed = true;
     this.hands.L.release(0);
     this.hands.R.release(0);

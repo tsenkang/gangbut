@@ -185,6 +185,11 @@ export class Bot implements InputSource {
       return;
     }
 
+    // O alvo pode ter saído do jogo desde a última decisão.
+    if (this.target && (this.target.removed || !this.target.alive)) {
+      this.target = null;
+      this.think = 0;
+    }
     if (this.mode === 'wander' || !this.target) {
       o.grabL = o.grabR = false;
       if (Math.random() < dt * 0.5) this.wanderDir.set(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();

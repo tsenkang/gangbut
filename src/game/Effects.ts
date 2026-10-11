@@ -122,7 +122,9 @@ export class Effects {
     this.group.add(this.blobs.mesh, this.glow.mesh, this.stars);
     this.layer = document.createElement('div');
     this.layer.className = 'fx-layer';
-    document.getElementById('app')!.appendChild(this.layer);
+    // Fica atrás da interface (menus cobrem os textos de golpe).
+    const app = document.getElementById('app')!;
+    app.insertBefore(this.layer, document.getElementById('ui'));
   }
 
   private rnd(s: number) {

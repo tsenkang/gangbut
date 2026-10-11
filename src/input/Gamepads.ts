@@ -43,9 +43,10 @@ export type PadType = 'xbox' | 'playstation' | 'generic';
 
 export function padType(id: string): PadType {
   const s = id.toLowerCase();
+  // Xbox primeiro: "Xbox Wireless Controller" também contém "wireless controller".
+  if (s.includes('xbox') || s.includes('xinput') || s.includes('045e') || s.includes('microsoft')) return 'xbox';
   if (s.includes('054c') || s.includes('dualsense') || s.includes('dualshock') || s.includes('playstation') || s.includes('wireless controller'))
     return 'playstation';
-  if (s.includes('xbox') || s.includes('xinput') || s.includes('045e') || s.includes('microsoft')) return 'xbox';
   return 'generic';
 }
 
