@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { h, hex, uiRoot } from './UI';
 import type { Fighter } from '../characters/Fighter';
 import { SLOT_COLORS, type PlayerSetup } from '../game/config';
+import type { ControlLabels } from '../input/labels';
 
 // ------------------------------------------------------------
 // HUD da luta: placar no topo, nome + barra de tontura em cima de
@@ -13,11 +14,12 @@ export class Hud {
   private top = h('div', 'hud-top');
   private center = h('div', 'hud-center');
   private feed = h('div', 'hud-feed');
-  private tags = new Map<Fighter, { el: HTMLDivElement; bar: HTMLDivElement }>();
+  private legend = h('div', 'hud-legend');
+  private tags = new Map<Fighter, { el: HTMLDivElement; bar: HTMLDivElement; hint: HTMLDivElement | null; labels?: ControlLabels; lastHint: string }>();
   private centerTimer = 0;
 
   constructor(private camera: THREE.Camera) {
-    this.el.append(this.top, this.center, this.feed);
+    this.el.append(this.top, this.center, this.feed, this.legend);
     uiRoot().appendChild(this.el);
   }
 
@@ -51,19 +53,61 @@ export class Hud {
     while (this.feed.children.length > 4) this.feed.lastChild?.remove();
   }
 
-  setFighters(fighters: Fighter[]) {
+  /** humans: lutadores controlados por gente, com os nomes dos botões de cada um. */
+  setFighters(fighters: Fighter[], humans: Map<Fighter, ControlLabels> = new Map(), bigLegend = false) {
     for (const [, t] of this.tags) t.el.remove();
     this.tags.clear();
     for (const f of fighters) {
-      const el = h('div', 'tag', `<span>${f.name}</span>`);
+      const labels = humans.get(f);
+      const el = h('div', 'tag' + (labels ? ' me' : ''), `<span>${f.name}</span>`);
       el.style.setProperty('--c', hex(SLOT_COLORS[f.index]));
       const barBox = h('div', 'dizzy');
       const bar = h('div');
       barBox.appendChild(bar);
+      let hint: HTMLDivElement | null = null;
+      if (labels) {
+        hint = h('div', 'hint');
+        el.prepend(hint);
+      }
       el.appendChild(barBox);
       this.el.appendChild(el);
-      this.tags.set(f, { el, bar });
+      this.tags.set(f, { el, bar, hint, labels, lastHint: '' });
     }
+    // Legenda fixa com os botões de cada jogador humano
+    this.legend.innerHTML = '';
+    for (const [f, L] of humans) {
+      const d = h(
+        'div',
+        'legend' + (bigLegend ? ' big' : ''),
+        `<b>${f.name}</b><span><kbd>${L.move}</kbd> andar</span><span><kbd>${L.jump}</kbd> pular</span><span><kbd>${L.punch}</kbd> socar</span><span><kbd>${L.grab}</kbd> agarrar (segure)</span><span><kbd>${L.headbutt}</kbd> cabeçada</span><span><kbd>${L.pause}</kbd> pausa</span>`,
+      );
+      d.style.setProperty('--c', hex(SLOT_COLORS[f.index]));
+      this.legend.appendChild(d);
+    }
+  }
+
+  /** Deixa a legenda pequena (depois do começo da partida). */
+  shrinkLegend() {
+    for (const c of Array.from(this.legend.children)) c.classList.remove('big');
+  }
+
+  /** Qual dica mostrar em cima do boneco do jogador agora? */
+  private hintFor(f: Fighter, L: ControlLabels): string {
+    if (f.ko) return 'Desmaiado! Já já você levanta...';
+    if (f.grabbedBy > 0) return `Te pegaram! Aperte ${L.jump} sem parar!`;
+    const holdingFoe = [f.hands.L, f.hands.R].some((hd) => hd.holding() && hd.targetInfo?.kind === 'fighter');
+    const holdingThing = [f.hands.L, f.hands.R].some((hd) => hd.holding() && hd.targetInfo?.kind === 'prop');
+    const hanging = (f.hands.L.holdingStatic() || f.hands.R.holdingStatic()) && !f.grounded;
+    if (hanging) return `${L.jump}: subir!`;
+    if (holdingFoe) return `Leve até a borda e aperte ${L.punch.split(' / ')[0]}: arremessar!`;
+    if (holdingThing) return `${L.punch.split(' / ')[0]}: arremessar a peça`;
+    const me = f.pos('chest');
+    for (const [o] of this.tags) {
+      if (o === f || !o.alive || o.removed) continue;
+      if (o.ko && o.pos('chest').distanceTo(me) < 2.2) return `Ele desmaiou! Segure ${L.grab} para agarrar`;
+    }
+    if (f.dizzy > 70) return 'Tonto! Mais um soco e você desmaia';
+    return '';
   }
 
   update(dt: number) {
@@ -93,6 +137,13 @@ export class Hud {
       t.bar.style.width = `${d}%`;
       t.bar.className = f.ko ? 'ko' : d > 65 ? 'high' : '';
       t.el.classList.toggle('ko', f.ko);
+      if (t.hint && t.labels) {
+        const msg = this.hintFor(f, t.labels);
+        if (msg !== t.lastHint) {
+          t.lastHint = msg;
+          t.hint.textContent = msg;
+        }
+      }
     }
   }
 

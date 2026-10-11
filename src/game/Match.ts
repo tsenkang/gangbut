@@ -11,6 +11,7 @@ import { MenuList, h, hex, uiRoot } from '../ui/UI';
 import { audio } from '../audio/Audio';
 import { music } from '../audio/Music';
 import type { Fighter } from '../characters/Fighter';
+import { labelsFor, type ControlLabels } from '../input/labels';
 
 // ------------------------------------------------------------
 // Uma partida: várias rodadas até alguém vencer a "melhor de 3"
@@ -84,7 +85,15 @@ export class Match {
     this.arena = arena;
     arena.onAnnounce = (t, cls) => this.hud.announce(t, cls);
     arena.fighters.forEach((f) => (f.frozen = true));
-    this.hud.setFighters(arena.fighters);
+    // Quem é gente (e com qual dispositivo) ganha legenda de botões e dicas.
+    const humans = new Map<Fighter, ControlLabels>();
+    for (const f of arena.fighters) {
+      const p = this.config.players.find((x) => x.slot === f.index);
+      if (p?.deviceId) humans.set(f, labelsFor(this.d.input.getSource(p.deviceId)));
+    }
+    this.hud.setFighters(arena.fighters, humans, this.round === 1);
+    if (this.round === 1 && humans.size)
+      this.hud.announce('Combo: soque até desmaiar → segure agarrar → leve até a borda → soco para jogar!', 'tip');
     this.state = 'countdown';
     this.stateTime = 0;
     this.lastCount = -1;
@@ -127,6 +136,7 @@ export class Match {
       }
       case 'fight': {
         if (!this.paused) this.timeLeft -= dt;
+        if (this.round === 1 && this.stateTime > 12 && this.stateTime - dt <= 12) this.hud.shrinkLegend();
         if (!this.suddenDeath && this.timeLeft <= SUDDEN_DEATH_AT) {
           this.suddenDeath = true;
           a.damageMult = 2;

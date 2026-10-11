@@ -366,7 +366,7 @@ export class Fighter {
     const me = this.pos('chest');
     const f = this.fwd();
     let best: Fighter | null = null;
-    let bestD = 2.8;
+    let bestD = 3.3;
     for (const o of env.fighters) {
       if (o === this || !o.alive || o.removed) continue;
       const d = o.pos('chest').sub(me);
@@ -686,7 +686,7 @@ export class Fighter {
         // Dá um passinho para frente junto com o soco
         const c = this.part('chest');
         const cv = c.linvel();
-        c.setLinvel({ x: cv.x + a.aim.x * 1.6, y: cv.y, z: cv.z + a.aim.z * 1.6 }, true);
+        c.setLinvel({ x: cv.x + a.aim.x * 2.6, y: cv.y, z: cv.z + a.aim.z * 2.6 }, true);
       }
       if (a.t >= 0.08 && a.t < 0.28) {
         this.testHit(env, this.hands[side].position(), DIM.handR + 0.1, a, TUNING.punchPower, 'punch', fore);

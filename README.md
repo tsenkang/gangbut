@@ -34,6 +34,8 @@ O último em pé vence a rodada.
 
 ## Controles
 
+No menu há a tela **Como jogar** (ela também aparece antes da primeira partida). Durante a luta, cada jogador vê a legenda dos seus botões no canto de baixo e dicas em cima do próprio boneco ("Segure L para agarrar", "Espaço: subir!"...).
+
 | Ação | Teclado A (J1) | Teclado B (J2) | Xbox | PS5 (DualSense) |
 |---|---|---|---|---|
 | Andar | W A S D | Setas | Analógico esquerdo | Analógico esquerdo |

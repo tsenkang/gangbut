@@ -152,3 +152,35 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #140f24; fon
 .main-menu .menu-list { width: min(400px, 100%); }
 .main-menu .pads-status { position: absolute; bottom: 44px; left: 5vw; }
 .main-menu .footer { text-align: left; left: 5vw; }
+
+/* Como jogar */
+.howto { overflow-y: auto; background: #140f24cc; gap: 12px; }
+.howto .title { margin-bottom: 0; }
+.howto .goal { font-size: 18px; margin: 0; text-align: center; max-width: 720px; }
+.howto .moves { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: min(1000px, 100%); }
+.howto .move { background: var(--paper); color: var(--ink); border: 4px solid var(--ink); border-radius: 16px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 5px 0 var(--ink); }
+.howto .move.hot { background: #fff1b8; }
+.howto .move h3 { margin: 0; font-family: var(--head); font-weight: 400; font-size: 22px; }
+.howto .move h3 small { font-family: var(--body); font-size: 13px; font-weight: 800; opacity: .7; }
+.howto .move p { margin: 0; font-size: 14px; flex: 1; }
+.howto .keys { display: flex; flex-wrap: wrap; gap: 6px; }
+.howto .keys span { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 900; }
+.howto .keys i { font-style: normal; opacity: .6; }
+kbd { display: inline-block; background: var(--ink); color: #fff; border-radius: 7px; padding: 2px 7px; font-family: var(--body); font-weight: 900; font-size: 13px; box-shadow: 0 2px 0 #0008; white-space: nowrap; }
+.howto .combo { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; background: var(--pink); color: #fff; border: 4px solid var(--ink); border-radius: 16px; padding: 10px 14px; font-weight: 900; max-width: 1000px; }
+.howto .combo span { background: #0003; border-radius: 8px; padding: 2px 8px; }
+.howto .small { opacity: .8; font-size: 13px; margin: 0; text-align: center; }
+.howto .menu-list { margin-top: 4px; width: min(320px, 100%); }
+@media (max-width: 900px) { .howto .moves { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Legenda de controles na luta (canto de baixo, à direita) */
+.hud-legend { position: absolute; right: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; max-width: 70vw; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; background: #140f24d0; border: 2px solid var(--c); border-radius: 12px; padding: 5px 10px; font-size: 12px; font-weight: 800; }
+.legend b { font-family: var(--head); font-weight: 400; font-size: 16px; color: var(--c); }
+.legend kbd { font-size: 11px; padding: 1px 5px; }
+.legend.big { font-size: 14px; padding: 8px 12px; }
+.legend.big kbd { font-size: 13px; }
+/* Dica em cima do boneco do jogador */
+.tag .hint { font-family: var(--body); font-weight: 900; font-size: 13px; -webkit-text-stroke: 0; color: var(--ink); background: var(--yellow); border: 2px solid var(--ink); border-radius: 8px; padding: 1px 7px; white-space: nowrap; animation: pulse 0.9s infinite; }
+.tag .hint:empty { display: none; }
+.tag.me span::after { content: ' ▼'; }

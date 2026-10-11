@@ -12,6 +12,7 @@ import { MainMenu } from '../ui/MainMenu';
 import { CharacterSelect, defaultAppearance, type SlotState } from '../ui/CharacterSelect';
 import { MatchSetup, type SetupState } from '../ui/MatchSetup';
 import { ControlsScreen } from '../ui/ControlsScreen';
+import { HowToPlay } from '../ui/HowToPlay';
 import { toast, type Screen } from '../ui/UI';
 import { audio } from '../audio/Audio';
 import { music } from '../audio/Music';
@@ -33,8 +34,9 @@ export class App {
   match: Match | null = null;
   slots: SlotState[] = [0, 1, 2, 3].map((i) => ({ deviceId: null, appearance: defaultAppearance(i), row: 0, ready: false }));
   vsBots = false;
-  setup: SetupState = { mapId: 'telhado', bestOf: 3, bots: 0, difficulty: 'medio' };
+  setup: SetupState = { mapId: 'telhado', bestOf: 3, bots: 0, difficulty: 'facil' };
   lastConfig: MatchConfig | null = null;
+  private seenHowTo = false;
   private showcaseKey = '';
   private showcaseMode: 'brawl' | 'lineup' = 'brawl';
 
@@ -146,6 +148,7 @@ export class App {
         local: () => this.goSelect(false),
         bots: () => this.goSelect(true),
         controls: () => this.goControls(),
+        howto: () => this.goHowTo(),
       }),
     );
   }
@@ -190,9 +193,27 @@ export class App {
     }
     this.setScreen(
       new MatchSetup(this.input, this.setup, humans, {
-        start: () => this.startMatch(this.buildConfig()),
+        start: () => {
+          const cfg = this.buildConfig();
+          // Na primeira partida, mostra rapidinho como se joga.
+          if (!this.seenHowTo) {
+            this.seenHowTo = true;
+            this.goHowTo(() => this.startMatch(cfg));
+          } else this.startMatch(cfg);
+        },
         back: () => this.goSelect(this.vsBots, true),
       }),
+    );
+  }
+
+  /** Tela "Como jogar". Com next, mostra "Bora brigar!" e segue para a partida. */
+  goHowTo(next?: () => void) {
+    this.setScreen(
+      new HowToPlay(
+        this.input,
+        { done: () => (next ? next() : this.goMenu()), back: () => (next ? next() : this.goMenu()) },
+        next ? 'Entendi, bora brigar!' : 'Voltar',
+      ),
     );
   }
 
