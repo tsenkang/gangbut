@@ -138,3 +138,15 @@ nocaute) ficam em `TUNING`, no topo de `src/characters/Fighter.ts`.
 - Se o jogo ficar abaixo de ~48 FPS por alguns segundos, a qualidade cai
   sozinha (menos resolução, depois sem sombras). Dá para fixar a qualidade
   no menu principal.
+
+## Publicar na web (GitHub Pages)
+
+O repositório já tem o workflow `.github/workflows/pages.yml`, que compila e
+publica o jogo a cada push.
+
+1. No GitHub, abra o repositório → **Settings** → **Pages**.
+2. Em **Build and deployment → Source**, escolha **GitHub Actions**.
+3. Vá em **Actions** → **Publicar no GitHub Pages** → **Run workflow**
+   (ou refaça a última execução com **Re-run jobs**).
+4. O endereço aparece em Settings → Pages, algo como
+   `https://<seu-usuario>.github.io/gangbut/`.
