@@ -30,8 +30,8 @@ interface BotParams {
 }
 
 const PARAMS: Record<Difficulty, BotParams> = {
-  facil: { reaction: 0.6, punchRate: 1.1, aimError: 0.7, edgeCare: 0.45, grabChance: 0.1, headbutt: 0.04, kick: 0.02, climb: false, carry: 0, speed: 0.7, escapeRate: 3 },
-  medio: { reaction: 0.32, punchRate: 2.3, aimError: 0.35, edgeCare: 0.85, grabChance: 0.35, headbutt: 0.12, kick: 0.06, climb: true, carry: 0.5, speed: 0.9, escapeRate: 6 },
+  facil: { reaction: 0.6, punchRate: 1.1, aimError: 0.7, edgeCare: 0.6, grabChance: 0.1, headbutt: 0.04, kick: 0.02, climb: false, carry: 0, speed: 0.7, escapeRate: 3 },
+  medio: { reaction: 0.32, punchRate: 2, aimError: 0.35, edgeCare: 0.95, grabChance: 0.35, headbutt: 0.12, kick: 0.06, climb: true, carry: 0.5, speed: 0.9, escapeRate: 6 },
   dificil: { reaction: 0.14, punchRate: 3.6, aimError: 0.12, edgeCare: 1, grabChance: 0.6, headbutt: 0.2, kick: 0.1, climb: true, carry: 0.9, speed: 1, escapeRate: 10 },
 };
 
@@ -270,8 +270,10 @@ export class Bot implements InputSource {
   /** Se o próximo passo for o vazio, desvia (de acordo com o cuidado). */
   private avoidEdge(me: THREE.Vector3) {
     if (this.wantDir.lengthSq() < 0.01) return;
-    const ahead = me.clone().addScaledVector(this.wantDir.clone().normalize(), 1.3);
-    if (this.careful && !this.groundAt(ahead)) {
+    const dir = this.wantDir.clone().normalize();
+    const near = me.clone().addScaledVector(dir, 0.7);
+    const ahead = me.clone().addScaledVector(dir, 1.3);
+    if (this.careful && (!this.groundAt(near) || !this.groundAt(ahead))) {
       const center = this.arena.map.camera.center;
       this.wantDir.copy(center).sub(me).setY(0).normalize();
     }

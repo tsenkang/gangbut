@@ -153,7 +153,7 @@ export class Arena implements ArenaApi {
       return;
     }
     power *= this.damageMult;
-    const knock = kind === 'punch' ? 3.4 : kind === 'headbutt' ? 5.2 : kind === 'kick' ? 6.5 : 4;
+    const knock = kind === 'punch' ? 2.1 : kind === 'headbutt' ? 3.8 : kind === 'kick' ? 4.6 : 3;
     const wasKo = victim.ko;
     victim.receiveHit(power, dir, partAt(victim, point), knock);
     if (attacker) {

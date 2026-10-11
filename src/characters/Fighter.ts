@@ -324,7 +324,8 @@ export class Fighter {
     const dir = this.fwd().multiplyScalar(1).add(new THREE.Vector3(0, 0.55, 0)).normalize();
     if (info?.kind === 'fighter') {
       const f = info.owner as Fighter;
-      f.knock(dir, 8.5);
+      // Desmaiado voa longe; acordado resiste e só leva um empurrão.
+      f.knock(dir, f.ko ? 8.5 : f.dizzy > 60 ? 6 : 4.2);
       f.lastAttacker = this;
       f.lastAttackerAt = env.time;
       f.addDizzy(8);
