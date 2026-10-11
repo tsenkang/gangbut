@@ -53,6 +53,8 @@ export class Arena implements ArenaApi {
   onAnnounce: (text: string, cls?: string) => void = () => {};
   /** Liga/desliga perigos (desligado na contagem regressiva). */
   hazardsOn = false;
+  /** Multiplicador de dano (morte súbita = 2). */
+  damageMult = 1;
 
   constructor(
     private engine: Engine,
@@ -68,8 +70,8 @@ export class Arena implements ArenaApi {
     rig.groundBasis(this.camFwd, this.camRight);
 
     // Cria os lutadores nos pontos de partida.
-    players.forEach((p, i) => {
-      const spawn = map.spawns[i % map.spawns.length];
+    players.forEach((p) => {
+      const spawn = map.spawns[p.slot % map.spawns.length];
       let source = p.source;
       let bot: Bot | null = null;
       if (p.bot) {
@@ -124,7 +126,7 @@ export class Arena implements ArenaApi {
   }
   hazardHit(victim: Fighter, power: number, dir: THREE.Vector3, knockSpeed: number, label?: string) {
     if (!victim.alive) return;
-    victim.receiveHit(power, dir, 'chest', knockSpeed);
+    victim.receiveHit(power * this.damageMult, dir, 'chest', knockSpeed);
     const p = victim.pos('chest');
     this.effects.drops(p, victim.appearance.color, dir, 1.4);
     this.effects.sparks(p, 0xffffff, 12, 7);
@@ -150,6 +152,7 @@ export class Arena implements ArenaApi {
       }
       return;
     }
+    power *= this.damageMult;
     const knock = kind === 'punch' ? 3.4 : kind === 'headbutt' ? 5.2 : kind === 'kick' ? 6.5 : 4;
     const wasKo = victim.ko;
     victim.receiveHit(power, dir, partAt(victim, point), knock);

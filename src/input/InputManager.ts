@@ -1,5 +1,5 @@
 import { GamepadSource, getPad } from './Gamepads';
-import { KeyboardSource, LAYOUT_A, LAYOUT_B, initKeyboard } from './Keyboard';
+import { KeyboardSource, LAYOUT_A, LAYOUT_B, initKeyboard, clearTaps } from './Keyboard';
 import type { MenuAction } from './types';
 
 // ------------------------------------------------------------
@@ -104,6 +104,11 @@ export class InputManager {
         } else mem.held[a] = -1;
       }
     }
+  }
+
+  /** Fim do quadro: esquece os toques rápidos já lidos. */
+  endFrame() {
+    clearTaps();
   }
 
   /** Toques de menu de um dispositivo neste quadro. */

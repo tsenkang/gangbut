@@ -32,8 +32,8 @@ export class Rooftop extends GameMap {
   killY = -8;
   camera = {
     dir: new THREE.Vector3(0, 0.62, 1),
-    minDist: 13,
-    maxDist: 24,
+    minDist: 10.5,
+    maxDist: 22,
     fov: 42,
     center: new THREE.Vector3(0, 0.8, 0.5),
     bounds: new THREE.Box3(new THREE.Vector3(-7, 0, -4), new THREE.Vector3(7, 4, 5)),

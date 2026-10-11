@@ -93,6 +93,22 @@ export class Physics {
     return { body, collider: col };
   }
 
+  /** Colisor fixo de qualquer forma (cilindro, bola...). */
+  addStatic(pos: THREE.Vector3Like, desc: RAPIER.ColliderDesc, opts: { rot?: THREE.Quaternion; friction?: number; restitution?: number; grabbable?: boolean } = {}) {
+    const bd = RAPIER.RigidBodyDesc.fixed().setTranslation(pos.x, pos.y, pos.z);
+    if (opts.rot) bd.setRotation(opts.rot);
+    const body = this.world.createRigidBody(bd);
+    const col = this.world.createCollider(
+      desc
+        .setFriction(opts.friction ?? 0.9)
+        .setRestitution(opts.restitution ?? 0.05)
+        .setCollisionGroups(groups(G_WORLD, G_ALL)),
+      body,
+    );
+    this.register(col, { kind: 'static', grabbable: opts.grabbable ?? true });
+    return { body, collider: col };
+  }
+
   /** Raio para baixo, ignorando um grupo (o próprio lutador). Devolve a distância ou null. */
   rayDown(origin: THREE.Vector3Like, maxDist: number, ignoreBit: number): { dist: number; collider: RAPIER.Collider } | null {
     const ray = new RAPIER.Ray({ x: origin.x, y: origin.y, z: origin.z }, { x: 0, y: -1, z: 0 });

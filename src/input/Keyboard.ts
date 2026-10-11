@@ -9,12 +9,20 @@ import { emptyControl, type ControlState, type InputSource, type MenuAction } fr
 // ------------------------------------------------------------
 
 const down = new Set<string>();
+/** Teclas apertadas desde o último quadro (para não perder toques rápidos). */
+const tapped = new Set<string>();
+
+/** Chamado uma vez por quadro, depois de ler o teclado. */
+export function clearTaps() {
+  tapped.clear();
+}
 
 export function initKeyboard() {
   window.addEventListener('keydown', (e) => {
     // Evita a página rolar com espaço / setas.
     if (e.code.startsWith('Arrow') || e.code === 'Space' || e.code.startsWith('Numpad')) e.preventDefault();
     down.add(e.code);
+    tapped.add(e.code);
   });
   window.addEventListener('keyup', (e) => down.delete(e.code));
   window.addEventListener('blur', () => down.clear());
@@ -64,7 +72,7 @@ export const LAYOUT_B: KeyLayout = {
   pause: ['NumpadEnter', 'Backspace'],
 };
 
-const any = (codes: string[]) => codes.some((c) => down.has(c));
+const any = (codes: string[]) => codes.some((c) => down.has(c) || tapped.has(c));
 
 export class KeyboardSource implements InputSource {
   kind = 'keyboard' as const;
