@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GameMap, canvasTexture, hazardStripes, type ArenaApi } from './MapBase';
+import { grimeTexture } from './City';
 import { RAPIER } from '../physics/Physics';
 import type { Fighter } from '../characters/Fighter';
 
@@ -47,15 +48,15 @@ export class Factory extends GameMap {
 
   build() {
     this.lights({
-      skyTop: 0x2c3e50,
-      skyBottom: 0x6b4f3a,
-      fog: { color: 0x3a3340, near: 30, far: 80 },
-      sunColor: 0xffd9a8,
-      sunIntensity: 2.2,
+      skyTop: 0x15141a,
+      skyBottom: 0x2e2722,
+      fog: { color: 0x221d1c, near: 22, far: 60 },
+      sunColor: 0xffd2a0,
+      sunIntensity: 1.6,
       sunPos: new THREE.Vector3(6, 18, 10),
-      hemiSky: 0xbcd4ff,
-      hemiGround: 0x6b4a2a,
-      hemiIntensity: 1.2,
+      hemiSky: 0x8f9bb5,
+      hemiGround: 0x3a2a1e,
+      hemiIntensity: 1.15,
       shadowExtent: 14,
     });
     const floorTex = canvasTexture(
@@ -72,7 +73,23 @@ export class Factory extends GameMap {
       },
       [8, 3],
     );
-    const floor = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.7, metalness: 0.3 });
+    void floorTex;
+    const floor = new THREE.MeshStandardMaterial({ map: grimeTexture('#6a6c70', [7, 3], { tiles: 2, cracks: true, dark: 'rgba(40,20,0,0.18)' }), roughness: 0.85, metalness: 0.2 });
+    // Luminárias industriais penduradas (luz quente em cone)
+    for (const x of [-5, 0, 5]) {
+      const shade = new THREE.Mesh(new THREE.ConeGeometry(0.6, 0.45, 16, 1, true), this.material(0x2f4a3a, { side: THREE.DoubleSide, metalness: 0.5 }));
+      shade.position.set(x, 6.2, 0);
+      this.deco(shade, false);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffe0a0 }));
+      bulb.position.set(x, 5.95, 0);
+      this.deco(bulb, false);
+      const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 4, 4), this.material(0x111111));
+      wire.position.set(x, 8.4, 0);
+      this.deco(wire, false);
+      const l = new THREE.PointLight(0xffc27a, 55, 14, 1.6);
+      l.position.set(x, 5.7, 0);
+      this.ctx.root.add(l);
+    }
     // Pisos dos dois lados da esteira (de -8 até 6 em x)
     this.box({ x: -1, y: -0.75, z: 3.5 }, { x: 14, y: 1.5, z: 4.2 }, floor);
     this.box({ x: -1, y: -0.75, z: -3.6 }, { x: 14, y: 1.5, z: 4.4 }, floor);

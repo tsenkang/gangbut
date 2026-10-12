@@ -4,6 +4,7 @@ import { Factory } from './Factory';
 import { JellyRing } from './JellyRing';
 import { Train } from './Train';
 import { LavaBridge } from './LavaBridge';
+import { Girders } from './Girders';
 
 // ------------------------------------------------------------
 // Lista de mapas. Para adicionar um mapa novo, importe a classe
@@ -16,6 +17,7 @@ export const MAPS: { id: string; make: () => GameMap }[] = [
   { id: 'gelatina', make: () => new JellyRing() },
   { id: 'trem', make: () => new Train() },
   { id: 'lava', make: () => new LavaBridge() },
+  { id: 'vigas', make: () => new Girders() },
 ];
 
 export const makeMap = (id: string) => (MAPS.find((m) => m.id === id) ?? MAPS[0]).make();

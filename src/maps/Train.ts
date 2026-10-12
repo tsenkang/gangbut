@@ -55,15 +55,16 @@ export class Train extends GameMap {
 
   build() {
     this.lights({
-      skyTop: 0x4fa3ff,
-      skyBottom: 0xd8f0ff,
-      fog: { color: 0xcfe8ff, near: 40, far: 150 },
-      sunColor: 0xfff3d6,
-      sunIntensity: 2.6,
-      sunPos: new THREE.Vector3(10, 22, 12),
-      hemiSky: 0xcfe8ff,
-      hemiGround: 0x7a9a4a,
-      hemiIntensity: 1.1,
+      // fim de tarde, céu alaranjado e neblina (clima de cidade industrial)
+      skyTop: 0x34405e,
+      skyBottom: 0xe0905a,
+      fog: { color: 0x9a7a6a, near: 30, far: 120 },
+      sunColor: 0xffc08a,
+      sunIntensity: 2.3,
+      sunPos: new THREE.Vector3(-14, 12, 10),
+      hemiSky: 0xb7b2c8,
+      hemiGround: 0x4a4030,
+      hemiIntensity: 1.15,
       shadowExtent: 16,
     });
 
@@ -72,10 +73,10 @@ export class Train extends GameMap {
       256,
       256,
       (g) => {
-        g.fillStyle = '#7fb24a';
+        g.fillStyle = '#6b6152';
         g.fillRect(0, 0, 256, 256);
         for (let i = 0; i < 300; i++) {
-          g.fillStyle = Math.random() < 0.5 ? '#6fa13c' : '#8fc25a';
+          g.fillStyle = Math.random() < 0.5 ? '#5d5446' : '#7a6f5f';
           g.fillRect(Math.random() * 256, Math.random() * 256, 6, 3);
         }
         // trilhos
@@ -93,7 +94,7 @@ export class Train extends GameMap {
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -4.4;
     this.deco(ground, false);
-    const farGround = new THREE.Mesh(new THREE.PlaneGeometry(600, 400), this.material(0x7fb24a));
+    const farGround = new THREE.Mesh(new THREE.PlaneGeometry(600, 400), this.material(0x5f574a));
     farGround.rotation.x = -Math.PI / 2;
     farGround.position.y = -4.5;
     this.deco(farGround, false);
@@ -154,7 +155,7 @@ export class Train extends GameMap {
       const tree = new THREE.Group();
       const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 2, 6), this.material(0x7a4a2a));
       trunk.position.y = 1;
-      const top = new THREE.Mesh(new THREE.ConeGeometry(1.4, 3.2, 8), this.material(0x2f7d32));
+      const top = new THREE.Mesh(new THREE.ConeGeometry(1.4, 3.2, 8), this.material(0x3b4a2e));
       top.position.y = 3.2;
       tree.add(trunk, top);
       const side = Math.random() < 0.5 ? -1 : 1;
@@ -163,7 +164,7 @@ export class Train extends GameMap {
       this.scenery.push(tree);
     }
     for (let i = 0; i < 8; i++) {
-      const hill = new THREE.Mesh(new THREE.SphereGeometry(18 + Math.random() * 10, 16, 10), this.material(0x6a9e3a));
+      const hill = new THREE.Mesh(new THREE.SphereGeometry(18 + Math.random() * 10, 16, 10), this.material(0x4e4a48));
       hill.position.set(-150 + i * 45, -18, -70 - Math.random() * 30);
       this.deco(hill, false);
     }

@@ -76,11 +76,12 @@ personagem e cor. Para criar uma nova, veja `src/characters/Costumes.ts`.
 
 | Mapa | Perigo |
 |---|---|
-| 🏙️ Telhado | A frente não tem mureta; as muretas dos lados são baixinhas |
+| 🏙️ Telhado | Noite, outdoor de neon com passarela; a frente não tem mureta |
 | 🏭 Fábrica | Esteira que leva todo mundo para o buraco + prensa que desce de tempos em tempos |
 | 🍮 Ringue de Gelatina | O ringue inclina, treme e quica sobre um mar de calda |
 | 🚂 Trem em Movimento | Postes rentes aos lados e túnel que varre quem estiver em pé |
 | 🌋 Ponte sobre Lava | As tábuas tremem e caem uma a uma |
+| 🏗️ Vigas | Vigas estreitas de prédio em obras, guindaste que varre e ventania |
 
 ## Como adicionar um mapa novo
 
