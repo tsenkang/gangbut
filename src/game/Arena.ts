@@ -55,6 +55,7 @@ export class Arena implements ArenaApi {
   hazardsOn = false;
   /** Multiplicador de dano (morte súbita = 2). */
   damageMult = 1;
+  private lastPopAt = -9;
 
   constructor(
     private engine: Engine,
@@ -170,7 +171,8 @@ export class Arena implements ArenaApi {
     victim.source.rumble?.(strong ? 1 : 0.5, strong ? 0.9 : 0.6, strong ? 280 : 120);
     attacker?.source.rumble?.(0.2, 0.4, 70);
     const label = kind === 'headbutt' ? 'CABEÇADA!' : kind === 'kick' ? 'VOADORA!' : pick(POW);
-    if (kind !== 'punch' || Math.random() < 0.45) this.effects.text(point.clone().add(new THREE.Vector3(0, 0.5, 0)), label, strong ? 'big' : '');
+    // Um texto por vez (senão a tela vira sopa de letrinhas)
+    if ((kind !== 'punch' || Math.random() < 0.45) && this.time - this.lastPopAt > 0.35 && (this.lastPopAt = this.time) >= 0) this.effects.text(point.clone().add(new THREE.Vector3(0, 0.5, 0)), label, strong ? 'big' : '');
   }
 
   private onEvent(f: Fighter, ev: FighterEvent, amount = 1) {

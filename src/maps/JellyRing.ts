@@ -63,7 +63,7 @@ export class JellyRing extends GameMap {
     const group = new THREE.Group();
     this.jelly = new THREE.Mesh(
       new THREE.CylinderGeometry(R, R * 0.92, 1, 48, 1),
-      new THREE.MeshPhysicalMaterial({ color: 0xff4f8b, roughness: 0.15, clearcoat: 1, clearcoatRoughness: 0.1, transparent: true, opacity: 0.88, sheen: 0.6 }),
+      new THREE.MeshPhysicalMaterial({ color: 0x4cc9f0, roughness: 0.15, clearcoat: 1, clearcoatRoughness: 0.1, transparent: true, opacity: 0.88, sheen: 0.6 }),
     );
     group.add(this.jelly);
     // Topo com "creme"
@@ -94,7 +94,7 @@ export class JellyRing extends GameMap {
     this.ctx.links.add(this.ring, group);
 
     // Mar de calda
-    this.sea = new THREE.Mesh(new THREE.CircleGeometry(160, 48), new THREE.MeshPhysicalMaterial({ color: 0xd61f5c, roughness: 0.1, clearcoat: 1 }));
+    this.sea = new THREE.Mesh(new THREE.CircleGeometry(160, 48), new THREE.MeshPhysicalMaterial({ color: 0xb3123f, roughness: 0.15, clearcoat: 1 }));
     this.sea.rotation.x = -Math.PI / 2;
     this.sea.position.y = -6;
     this.deco(this.sea, false);

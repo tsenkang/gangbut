@@ -57,6 +57,7 @@ export class App {
       this.screen?.update(dt);
       if (this.match) this.match.frame(dt, alpha);
       else if (this.showcase) {
+        if (this.showcaseMode === 'lineup') for (const f of this.showcase.fighters) f.celebrating = !!this.slots[f.index]?.ready;
         this.showcase.frame(dt, alpha);
         if (this.showcaseMode === 'brawl' && (this.showcase.alive.length < 2 || this.showcase.time > 45)) this.buildShowcase(true);
       }
@@ -102,6 +103,8 @@ export class App {
         for (const f of this.showcase.fighters) {
           const s = this.slots[f.index];
           if (s && JSON.stringify(s.appearance) !== JSON.stringify(f.appearance)) f.setAppearance(s.appearance);
+          // Marcou "Pronto": o boneco comemora no palco.
+          if (s) f.celebrating = s.ready;
         }
       return;
     }

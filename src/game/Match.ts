@@ -148,6 +148,8 @@ export class Match {
         if (alive.length <= 1 || this.timeLeft <= 0) {
           this.state = 'roundEnd';
           this.stateTime = 0;
+          // O último em pé comemora!
+          if (alive.length === 1) alive[0].celebrating = true;
         }
         break;
       }

@@ -110,6 +110,20 @@ export class Fighter {
   headbutt = newAttack();
   kick = newAttack();
 
+  /** Comemorando (vencedor da rodada). */
+  celebrating = false;
+  /** Agachadinha antes do pulo (antecipação). */
+  private crouchT = -1;
+  /** Cambaleando depois de acordar. */
+  private wakeT = 0;
+  /** Para onde a cabeça está olhando (ponto no mundo). */
+  private lookAt: THREE.Vector3 | null = null;
+  /** "Molas" de gelatina de cada pedaço (só visual). */
+  private jelly = {
+    chest: { s: 0, v: 0, prev: new THREE.Vector3() },
+    head: { s: 0, v: 0, prev: new THREE.Vector3() },
+    pelvis: { s: 0, v: 0, prev: new THREE.Vector3() },
+  };
   private prevVel = new THREE.Vector3();
   private impactGrace = 0;
   private blinkT = Math.random() * 3;
@@ -226,7 +240,11 @@ export class Fighter {
       if (pressed('jump')) {
         const ledge = this.ledgeHand();
         if (ledge) this.startPull(env);
-        else if (this.grounded && this.jumpCooldown <= 0) this.doJump(env);
+        else if (this.grounded && this.jumpCooldown <= 0 && this.crouchT < 0) this.crouchT = 0.085; // agacha e pula
+      }
+      if (this.crouchT >= 0) {
+        this.crouchT -= dt;
+        if (this.crouchT < 0) this.doJump(env);
       }
       // Escapar quando alguém está me segurando: apertar botões!
       if (this.grabbedBy > 0 && (pressed('jump') || pressed('punchL') || pressed('punchR'))) {
@@ -268,7 +286,10 @@ export class Fighter {
       if (this.hands.R.holding()) this.hands.R.release();
       this.punchL.t = this.punchR.t = this.headbutt.t = this.kick.t = -1;
       this.pullT = -1;
+      this.crouchT = -1;
     }
+    this.wakeT -= dt;
+    this.updateLook(env);
 
     this.moveBody(move, moveMag, dt);
     this.poseBody(env, dt);
@@ -429,6 +450,12 @@ export class Fighter {
     this.hurtT = 0.28;
     this.squash = Math.min(0.35, 0.12 + power * 0.01);
     this.knock(dir, knockSpeed, part);
+    // A cabeça "chicoteia" para trás e o corpo amassa (gelatina!)
+    const h = this.part('head');
+    const hv = h.linvel();
+    h.setLinvel({ x: hv.x + dir.x * knockSpeed * 0.9, y: hv.y + 0.6, z: hv.z + dir.z * knockSpeed * 0.9 }, true);
+    this.jelly.chest.v -= 3 + power * 0.08;
+    this.jelly.head.v += 3 + power * 0.06;
     this.addDizzy(power);
   }
 
@@ -446,6 +473,7 @@ export class Fighter {
         this.koTimer = 0;
         this.dizzy = 35;
         this.strength = 0.05;
+        this.wakeT = 1.6;
         env.onEvent(this, 'wake');
       }
     } else if (this.hurtT < -1.2) {
@@ -522,6 +550,15 @@ export class Fighter {
 
     if (s < 0.1) return; // mole demais para se mexer
 
+    // Tonto ou acordando: anda cambaleando para os lados.
+    const wobbly = this.wobbliness();
+    if (wobbly > 0 && this.grounded) {
+      const tt = performance.now() / 1000 + this.index;
+      target.addScaledVector(this.left(), Math.sin(tt * 2.1) * 1.6 * wobbly);
+      target.addScaledVector(this.fwd(), Math.sin(tt * 1.3 + 1) * 0.8 * wobbly);
+    }
+    if (this.celebrating) target.set(0, 0, 0);
+
     const ctrl = (this.grounded ? 0.2 : 0.045) * s;
     for (const b of [pel, chest]) {
       const v = b.linvel();
@@ -531,8 +568,10 @@ export class Fighter {
     // "Mola" que segura o quadril na altura certa = ficar em pé.
     // Compensa o peso do corpo todo e puxa para a altura desejada.
     if (this.grounded && this.jumpT <= 0) {
-      const bob = Math.sin(this.walkPhase * 2) * 0.035 * Math.min(1, this.speed / 3);
-      const err = DIM.hover + bob - this.groundDist;
+      // Sobe e desce a cada passo (gingado) e se agacha antes do pulo.
+      const bob = Math.abs(Math.sin(this.walkPhase)) * 0.07 * Math.min(1, this.speed / 3) - 0.035 * Math.min(1, this.speed / 3);
+      const crouch = this.crouchT >= 0 ? 0.24 : 0;
+      const err = DIM.hover + bob - crouch - this.groundDist;
       const vy = pel.linvel().y;
       const acc = THREE.MathUtils.clamp(err * 170 - vy * 20, -25, 70) - GRAVITY;
       const imp = BODY_MASS * acc * dt * s;
@@ -542,6 +581,35 @@ export class Fighter {
     void moveMag;
   }
 
+  /** 0..1: quanto o boneco está cambaleando (tonto ou acabando de acordar). */
+  private wobbliness() {
+    if (!this.alive || this.ko) return 0;
+    const d = this.dizzy > 55 ? (this.dizzy - 55) / 45 : 0;
+    const w = this.wakeT > 0 ? Math.min(1, this.wakeT / 1.6) : 0;
+    return Math.min(1, Math.max(d * 0.8, w));
+  }
+
+  /** A cabeça procura o inimigo mais perto (os olhos seguem). */
+  private updateLook(env: FighterEnv) {
+    if (!this.alive || this.ko) {
+      this.lookAt = null;
+      return;
+    }
+    const me = this.pos('head');
+    let best: THREE.Vector3 | null = null;
+    let bd = 8;
+    for (const o of env.fighters) {
+      if (o === this || o.removed || !o.alive) continue;
+      const p = o.pos('head');
+      const d = p.distanceTo(me);
+      if (d < bd) {
+        bd = d;
+        best = p;
+      }
+    }
+    this.lookAt = best;
+  }
+
   // A pose de cada pedaço (é aqui que mora a "animação por código").
   private poseBody(env: FighterEnv, dt: number) {
     const s = this.strength;
@@ -549,51 +617,86 @@ export class Fighter {
     const fwd = this.fwd();
     const left = this.left();
     const spd = Math.min(1, this.speed / TUNING.walkSpeed);
+    const wob = this.wobbliness();
+    const walkSin = Math.sin(this.walkPhase);
 
-    // ----- tronco: inclina para frente ao correr, treme parado (gelatina)
-    let pitch = spd * 0.22 + Math.sin(t * 1.7) * 0.03;
-    let roll = Math.sin(t * 2.3) * 0.035;
-    let twist = 0;
-    if (this.hurtT > 0) pitch -= 0.45; // se encolhe para trás ao levar soco
+    // ----- tronco: respira parado, ginga de um lado para o outro ao andar
+    let pitch = spd * 0.24 + Math.sin(t * 2.2) * 0.025;
+    let roll = Math.sin(t * 1.4) * 0.03 + walkSin * 0.14 * spd; // gingado de pinguim
+    let twist = Math.sin(this.walkPhase) * 0.12 * spd; // ombros acompanham os passos
+    // Tonto: o corpo todo balança como pudim
+    pitch += Math.sin(t * 2.7) * 0.22 * wob;
+    roll += Math.sin(t * 3.3 + 1) * 0.3 * wob;
+    if (this.hurtT > 0) pitch -= 0.5; // se encolhe para trás ao levar soco
+    if (this.crouchT >= 0) pitch += 0.25; // agachadinha antes do pulo
     const hb = this.headbutt.t;
-    if (hb >= 0) pitch += hb < 0.08 ? -0.45 : 1.05;
+    if (hb >= 0) pitch += hb < 0.08 ? -0.5 : hb < 0.35 ? 1.1 : 0.3;
     const kt = this.kick.t;
-    if (kt >= 0) pitch -= 0.7;
+    if (kt >= 0) pitch -= 0.75;
     for (const [a, sign] of [
       [this.punchL, -1],
       [this.punchR, 1],
     ] as const) {
       if (a.t < 0) continue;
-      // O corpo gira junto com o soco.
-      twist += a.t < 0.07 ? -sign * 0.3 : a.t < 0.3 ? sign * 0.55 : 0;
+      // Prepara girando para trás, depois gira o corpo todo no soco.
+      twist += a.t < 0.07 ? -sign * 0.4 : a.t < 0.3 ? sign * 0.65 : sign * 0.2;
+      if (a.t >= 0.07 && a.t < 0.3) pitch += 0.15;
     }
     if (this.pullT >= 0) pitch += 0.4;
-    roll += Math.sin(this.walkPhase) * 0.06 * spd;
+    if (this.celebrating) {
+      pitch = -0.25 + Math.sin(t * 6) * 0.08;
+      roll = Math.sin(t * 5) * 0.2;
+      twist = Math.sin(t * 3) * 0.3;
+    }
 
     const chestQ = yawPitchRoll(this.facing + twist, pitch, roll);
-    const pelvisQ = yawPitchRoll(this.facing, spd * 0.08, 0);
-    const headQ = yawPitchRoll(this.facing + twist * 0.5, pitch * 0.4 - 0.05, roll * 0.5);
+    const pelvisQ = yawPitchRoll(this.facing - twist * 0.4, spd * 0.06, -walkSin * 0.08 * spd);
+    // Cabeça: olha para o inimigo mais perto (até ~50° para cada lado) e fica meio mole.
+    let headYaw = this.facing + twist * 0.4;
+    let headPitch = pitch * 0.35 - 0.05;
+    if (this.lookAt && !this.celebrating) {
+      const d = this.lookAt.clone().sub(this.pos('head'));
+      const want = Math.atan2(d.x, d.z);
+      headYaw = this.facing + THREE.MathUtils.clamp(angleDiff(this.facing, want), -0.9, 0.9);
+      headPitch += THREE.MathUtils.clamp(-d.y * 0.3, -0.3, 0.3);
+    }
+    headPitch += Math.sin(t * 3.1) * 0.12 * wob;
+    const headQ = yawPitchRoll(headYaw, headPitch, roll * 0.4 + Math.sin(t * 2.6) * 0.25 * wob);
     const hard = this.headbutt.t >= 0 || this.kick.t >= 0 ? 1.4 : 1;
     muscleOrient(this.part('chest'), chestQ, 0.32 * s * hard);
     muscleOrient(this.part('pelvis'), pelvisQ, 0.32 * s);
-    muscleOrient(this.part('head'), headQ, 0.22 * s);
+    muscleOrient(this.part('head'), headQ, (0.16 + 0.06 * (1 - wob)) * s);
 
-    // ----- pernas: passo para frente e para trás
-    const legAmp = this.grounded ? 0.75 * spd : 0.25;
-    for (const [side, ph] of [
-      ['L', 0],
-      ['R', Math.PI],
+    // ----- pernas: passinhos curtos, com as pernas um pouco abertas
+    const legAmp = this.grounded ? 0.7 * spd : 0.25;
+    const held = this.grabbedBy > 0 && !this.grounded;
+    for (const [side, sx, ph] of [
+      ['L', 1, 0],
+      ['R', -1, Math.PI],
     ] as const) {
       const leg = this.part(('leg' + side) as PartName);
-      const d = DOWN.clone();
+      const sideV = left.clone().multiplyScalar(sx);
+      const d = DOWN.clone().addScaledVector(sideV, 0.1);
+      let str = 0.3;
       if (kt >= 0 && kt < 0.5) {
         d.copy(fwd).multiplyScalar(1.1).addScaledVector(DOWN, 0.25);
+        str = 0.6;
+      } else if (held) {
+        // Pendurado por alguém: esperneia
+        d.addScaledVector(fwd, Math.sin(t * 13 + ph) * 0.8);
+      } else if (this.celebrating) {
+        d.addScaledVector(sideV, 0.15 + Math.max(0, Math.sin(t * 6 + ph)) * 0.25);
       } else if (!this.grounded) {
-        d.addScaledVector(fwd, 0.35 + Math.sin(t * 9 + ph) * 0.2);
+        // No ar: pedala
+        d.addScaledVector(fwd, 0.3 + Math.sin(t * 10 + ph) * 0.35);
       } else {
-        d.addScaledVector(fwd, Math.sin(this.walkPhase + ph) * legAmp);
+        const step = Math.sin(this.walkPhase + ph);
+        d.addScaledVector(fwd, step * legAmp);
+        // A perna que vai à frente abre um pouquinho (passo de pinguim)
+        d.addScaledVector(sideV, Math.max(0, step) * 0.12 * spd);
+        if (this.crouchT >= 0) d.addScaledVector(fwd, 0.25);
       }
-      muscleAim(leg, AXIS_DOWN, d, (kt >= 0 ? 0.6 : 0.3) * s, 16, 26, fwd);
+      muscleAim(leg, AXIS_DOWN, d, str * s, 16, 26, fwd);
     }
 
     // ----- braços
@@ -615,48 +718,79 @@ export class Fighter {
       let str: number;
 
       if (punch.t >= 0 && punch.t < 0.07) {
-        // Puxa o braço para trás (preparando)
-        upper = fwd.clone().multiplyScalar(-0.7).addScaledVector(DOWN, 0.6).addScaledVector(sideV, 0.4);
-        lower = fwd.clone().multiplyScalar(0.3).addScaledVector(UP, 0.2);
-        str = 0.7;
+        // Puxa o braço para trás (preparando), cotovelo dobrado
+        upper = fwd.clone().multiplyScalar(-0.8).addScaledVector(DOWN, 0.5).addScaledVector(sideV, 0.5);
+        lower = fwd.clone().multiplyScalar(0.5).addScaledVector(UP, 0.4);
+        str = 0.75;
       } else if (punch.t >= 0.07 && punch.t < 0.3) {
         // Braço esticado do ombro até o alvo
         upper = punch.point.clone().sub(shoulder);
         lower = upper.clone();
         str = 1;
+      } else if (punch.t >= 0.3) {
+        // Volta mole depois do soco
+        upper = DOWN.clone().addScaledVector(fwd, 0.6);
+        lower = upper.clone().addScaledVector(fwd, 0.3);
+        str = 0.25;
       } else if (this.pullT >= 0) {
         upper = DOWN.clone().addScaledVector(fwd, 0.4);
         lower = DOWN.clone().addScaledVector(fwd, 0.2);
         str = 0.8;
       } else if (grabbing || hand.holding()) {
-        // Braços esticados para frente, se juntando na frente do peito
+        // "Braços de zumbi": esticados para frente, balançando de leve
         const reach = chestPos
           .clone()
           .addScaledVector(fwd, 1.05 * Math.cos(reachPitch))
-          .addScaledVector(UP, 1.05 * Math.sin(reachPitch) + 0.05)
+          .addScaledVector(UP, 1.05 * Math.sin(reachPitch) + 0.05 + Math.sin(t * 7 + ph) * 0.06)
           .addScaledVector(sideV, 0.16);
         upper = reach.sub(shoulder);
         lower = upper.clone();
         str = hand.holding() ? 0.7 : 0.85;
+      } else if (this.celebrating) {
+        // Comemora: braços para cima, abanando
+        upper = UP.clone().addScaledVector(sideV, 0.5 + Math.sin(t * 9 + ph) * 0.35);
+        lower = upper.clone().addScaledVector(sideV, Math.sin(t * 9 + ph) * 0.4);
+        str = 0.6;
       } else if (this.hurtT > 0) {
         // Se protege: braços junto do corpo
         upper = DOWN.clone().addScaledVector(fwd, 0.5).addScaledVector(sideV, -0.3);
         lower = UP.clone().addScaledVector(fwd, 0.6).addScaledVector(sideV, -0.4);
         str = 0.4;
+      } else if (this.grabbedBy > 0) {
+        // Sendo carregado: se debate
+        upper = UP.clone().addScaledVector(sideV, 0.6).addScaledVector(fwd, Math.sin(t * 15 + ph) * 0.8);
+        lower = upper.clone();
+        str = 0.35;
       } else if (!this.grounded && this.airTime > 0.25) {
         // Caindo: braços para cima, desesperado
         upper = UP.clone().addScaledVector(sideV, 0.8).addScaledVector(fwd, Math.sin(t * 14 + ph) * 0.5);
         lower = upper.clone().addScaledVector(UP, 0.4);
         str = 0.3;
+      } else if (wob > 0.2) {
+        // Tonto: braços soltos girando
+        upper = DOWN.clone().addScaledVector(sideV, 0.5 + Math.sin(t * 4 + ph) * 0.4).addScaledVector(fwd, Math.cos(t * 4 + ph) * 0.5);
+        lower = upper.clone();
+        str = 0.12;
       } else {
-        // Balança os braços ao andar
-        const swing = Math.sin(this.walkPhase + ph) * 0.8 * spd;
-        upper = DOWN.clone().addScaledVector(fwd, swing).addScaledVector(sideV, 0.22 + Math.sin(t * 1.3 + ph) * 0.04);
-        lower = upper.clone().addScaledVector(fwd, 0.35);
-        str = 0.18;
+        // Balança os braços ao andar (bracinhos curtos e moles)
+        const swing = Math.sin(this.walkPhase + ph) * 0.9 * spd;
+        upper = DOWN.clone().addScaledVector(fwd, swing).addScaledVector(sideV, 0.25 + Math.sin(t * 1.3 + ph) * 0.05 + spd * 0.15);
+        lower = upper.clone().addScaledVector(fwd, 0.3 + spd * 0.3);
+        str = 0.16;
       }
       muscleAim(arm, AXIS_DOWN, upper, str * s);
       muscleAim(fore, AXIS_DOWN, lower, str * s);
+    }
+
+    // Comemorando: pulinhos
+    if (this.celebrating && this.grounded && this.jumpCooldown <= 0 && Math.random() < dt * 1.5) {
+      this.jumpCooldown = 0.6;
+      for (const n of PART_NAMES) {
+        const b = this.part(n);
+        const v = b.linvel();
+        b.setLinvel({ x: v.x, y: Math.max(v.y, 4.5), z: v.z }, true);
+      }
+      this.jumpT = 0.3;
     }
   }
 
@@ -780,14 +914,61 @@ export class Fighter {
     if (this.hurtT > 0) eyeScale = 0.35;
     if (ko) eyeScale = 1;
     for (const e of f.eyes) e.scale.y = eyeScale;
-    const shout = ko || this.hurtT > 0 || this.screamT > 0.8 || this.headbutt.t >= 0;
+    const shout = ko || this.hurtT > 0 || this.screamT > 0.8 || this.headbutt.t >= 0 || this.celebrating || this.grabbedBy > 0;
     f.mouth.visible = !shout;
     f.mouthO.visible = shout;
-    // Gelatina: amassa e volta
+
+    // Olhos seguem quem a cabeça está olhando
+    let lx = 0;
+    let ly = 0;
+    if (this.lookAt && !ko) {
+      const head = this.skin.parts.head;
+      const local = this.lookAt.clone().sub(head.position).applyQuaternion(head.quaternion.clone().invert());
+      local.normalize();
+      lx = THREE.MathUtils.clamp(local.x, -1, 1);
+      ly = THREE.MathUtils.clamp(local.y, -1, 1);
+    } else if (this.wobbliness() > 0.2) {
+      // tonto: olhos rodando
+      const tt = performance.now() / 300;
+      lx = Math.cos(tt);
+      ly = Math.sin(tt);
+    }
+    for (const p of f.pupils) {
+      p.position.x += (lx * 0.03 - p.position.x) * 0.3;
+      p.position.y += (ly * 0.025 - p.position.y) * 0.3;
+    }
+
+    // Gelatina: amassa e volta (golpes + molas de cada pedaço + respiração)
     this.squash *= Math.pow(0.02, dt);
     const wob = this.squash * Math.sin(performance.now() * 0.03);
-    this.skin.parts.chest.scale.set(1 + wob, 1 - wob, 1 + wob);
-    this.skin.parts.head.scale.set(1 - wob * 0.6, 1 + wob * 0.6, 1 - wob * 0.6);
+    const breath = Math.sin(performance.now() / 1000 * 2.4 + this.index) * 0.015;
+    const crouch = this.crouchT >= 0 ? 0.12 : 0;
+    const J = this.jelly;
+    const sq = (g: THREE.Object3D, k: number, extra: number) => {
+      const y = 1 + k + extra;
+      const xz = 1 - (k + extra) * 0.55;
+      g.scale.set(xz, y, xz);
+    };
+    sq(this.skin.parts.chest, J.chest.s - wob + breath - crouch, 0);
+    sq(this.skin.parts.head, J.head.s + wob * 0.6, 0);
+    sq(this.skin.parts.pelvis, J.pelvis.s - crouch * 0.5, 0);
+  }
+
+  /** Molas de gelatina: aceleração forte (pouso, golpe) faz o pedaço amassar e tremer. */
+  private updateJelly(dt: number) {
+    const J = this.jelly;
+    for (const n of ['chest', 'head', 'pelvis'] as const) {
+      const j = J[n];
+      const v = v3(this.part(n).linvel());
+      const ay = (v.y - j.prev.y) / dt;
+      const ah = Math.hypot(v.x - j.prev.x, v.z - j.prev.z) / dt;
+      j.prev.copy(v);
+      // parada brusca para baixo (pouso) = amassa; impulso para cima = estica
+      const drive = THREE.MathUtils.clamp(ay * 0.0035, -2.5, 2.5) * -1 + (ah > 25 ? (Math.random() - 0.5) * ah * 0.004 : 0);
+      j.v += (-260 * j.s - 9 * j.v) * dt + drive * (n === 'head' ? 0.6 : 1);
+      j.s += j.v * dt;
+      j.s = THREE.MathUtils.clamp(j.s, -0.28, 0.28);
+    }
   }
 
   /** Atualiza os desenhos (chamado a cada quadro). */
@@ -800,6 +981,7 @@ export class Fighter {
   afterPhysics() {
     if (this.removed) return;
     this.links.capture();
+    this.updateJelly(1 / 60);
     v3(this.part('chest').translation(), this.lastPos);
   }
 
