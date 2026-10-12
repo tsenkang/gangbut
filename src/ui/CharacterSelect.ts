@@ -20,9 +20,10 @@ export interface SlotState {
   ready: boolean;
 }
 
+/** Todo mundo começa como o Clássico, cada um com a cor do seu lugar. */
 export function defaultAppearance(slot: number): Appearance {
-  const c = CHARACTERS[slot % CHARACTERS.length];
-  return { character: c.id, color: c.defaultColor, hat: HATS[(slot + 1) % HATS.length].id };
+  const colors = [0xff4d5e, 0x3a86ff, 0x3ddc84, 0xffd23f];
+  return { character: CHARACTERS[0].id, color: colors[slot % 4], hat: 'nenhum', costume: 'nenhuma' };
 }
 
 export class CharacterSelect implements Screen {

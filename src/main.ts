@@ -1,7 +1,6 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 import './ui/style.css';
 import { App } from './game/App';
-import { CHARACTERS } from './characters/Skins';
 import type { MatchConfig } from './game/config';
 
 // ------------------------------------------------------------
@@ -21,10 +20,10 @@ async function boot() {
     const cfg: MatchConfig = {
       mapId: demo,
       bestOf: 3,
-      players: CHARACTERS.map((c, i) => ({
+      players: [0, 1, 2, 3].map((i) => ({
         slot: i,
         name: `CPU ${i + 1}`,
-        appearance: { character: c.id, color: c.defaultColor, hat: (['festa', 'cartola', 'gorro', 'nenhum'] as const)[i] },
+        appearance: { character: 'classico', color: [0xff4d5e, 0x3a86ff, 0x3ddc84, 0xffd23f][i], hat: 'nenhum', costume: (['nenhuma', 'topete', 'nenhuma', 'craque'] as const)[i] },
         bot: (['facil', 'medio', 'dificil', 'medio'] as const)[i],
       })),
     };

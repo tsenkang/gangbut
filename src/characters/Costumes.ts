@@ -34,11 +34,19 @@ function mesh(geo: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0)
   return o;
 }
 
+/** Tamanho da roupa (muda conforme o formato do personagem). */
+export interface BodyFit {
+  r: number;
+  len: number;
+  y: number;
+}
+let FIT: BodyFit = { r: 0.385, len: 0.3, y: -0.03 };
+
 /** Uma "roupa" que envolve o tronco (um pouco maior que o corpo). */
 function shirt(m: THREE.Material) {
-  const g = mesh(new THREE.CapsuleGeometry(0.385, 0.3, 8, 18), m);
+  const g = mesh(new THREE.CapsuleGeometry(FIT.r, FIT.len, 8, 18), m);
   g.scale.set(1.04, 0.92, 1.0);
-  g.position.y = -0.03;
+  g.position.y = FIT.y;
   return g;
 }
 
@@ -66,7 +74,9 @@ function numberTexture(text: string, bg: string, fg: string) {
  * headTop = altura do topo da cabeça; frontZ = frente do rosto.
  * Devolve os materiais criados (para liberar depois).
  */
-export function applyCostume(id: CostumeId, parts: Record<PartName, THREE.Group>, headTop: number, frontZ: number): THREE.Material[] {
+export function applyCostume(id: CostumeId, parts: Record<PartName, THREE.Group>, headTop: number, frontZ: number, fit?: BodyFit): THREE.Material[] {
+  FIT = fit ?? { r: 0.385, len: 0.3, y: -0.03 };
+  const k = FIT.r / 0.385; // detalhes do peito acompanham o tamanho
   const head = parts.head;
   const chest = parts.chest;
   const made: THREE.Material[] = [];
@@ -98,12 +108,12 @@ export function applyCostume(id: CostumeId, parts: Record<PartName, THREE.Group>
       }
       // golão branco com detalhes dourados
       const white = M(0xfafafa);
-      const collar = mesh(new THREE.CylinderGeometry(0.3, 0.38, 0.3, 20, 1, true, Math.PI * 0.6, Math.PI * 1.8), white, 0, 0.38, 0);
+      const collar = mesh(new THREE.CylinderGeometry(0.3 * k, 0.38 * k, 0.3, 20, 1, true, Math.PI * 0.6, Math.PI * 1.8), white, 0, 0.38 + (k - 1) * 0.5, 0);
       collar.rotation.y = Math.PI;
       (collar.material as THREE.MeshStandardMaterial).side = THREE.DoubleSide;
       chest.add(collar);
       chest.add(shirt(white));
-      for (let i = 0; i < 5; i++) chest.add(mesh(new THREE.SphereGeometry(0.035, 8, 6), gold, 0, 0.2 - i * 0.12, 0.4));
+      for (let i = 0; i < 5; i++) chest.add(mesh(new THREE.SphereGeometry(0.035, 8, 6), gold, 0, 0.2 - i * 0.12, 0.4 * k));
       break;
     }
     case 'genio': {
@@ -135,7 +145,7 @@ export function applyCostume(id: CostumeId, parts: Record<PartName, THREE.Group>
       // jaqueta preta com fivelas prateadas
       chest.add(shirt(black));
       const silver = M(0xd0d4dc, { metalness: 0.9, roughness: 0.15 });
-      for (let i = 0; i < 4; i++) chest.add(mesh(new THREE.BoxGeometry(0.12, 0.03, 0.03), silver, 0.12, 0.15 - i * 0.1, 0.39));
+      for (let i = 0; i < 4; i++) chest.add(mesh(new THREE.BoxGeometry(0.12, 0.03, 0.03), silver, 0.12, 0.15 - i * 0.1, 0.39 * k));
       // uma luva branca brilhante (só na mão direita)
       const glove = mesh(new THREE.SphereGeometry(0.155, 14, 10), M(0xffffff, { emissive: 0x666666, metalness: 0.4, roughness: 0.15 }), 0, -DIM.handOffset, 0);
       parts.foreR.add(glove);
@@ -149,12 +159,12 @@ export function applyCostume(id: CostumeId, parts: Record<PartName, THREE.Group>
       sh.rotation.y = -Math.PI / 2; // número de frente
       chest.add(sh);
       const green = M(0x1f8a3a);
-      const collar = mesh(new THREE.TorusGeometry(0.22, 0.04, 8, 20), green, 0, 0.36, 0);
+      const collar = mesh(new THREE.TorusGeometry(0.22 * k, 0.04, 8, 20), green, 0, 0.36 + (k - 1) * 0.6, 0);
       collar.rotation.x = Math.PI / 2;
       chest.add(collar);
       // calção azul
       const blue = M(0x1e4bd2);
-      const shorts = mesh(new THREE.SphereGeometry(0.35, 16, 12), blue, 0, 0, 0);
+      const shorts = mesh(new THREE.SphereGeometry(0.35 * Math.max(1, k * 0.97), 16, 12), blue, 0, 0, 0);
       shorts.scale.set(1.08, 0.85, 1.05);
       parts.pelvis.add(shorts);
       // faixinha de cabelo
@@ -179,7 +189,7 @@ export function applyCostume(id: CostumeId, parts: Record<PartName, THREE.Group>
       const pearl = M(0xfff8ee, { roughness: 0.15 });
       for (let i = 0; i < 14; i++) {
         const a = (i / 14) * Math.PI * 2;
-        chest.add(mesh(new THREE.SphereGeometry(0.04, 8, 6), pearl, Math.sin(a) * 0.3, 0.38 - Math.max(0, Math.cos(a)) * 0.07, Math.cos(a) * 0.3));
+        chest.add(mesh(new THREE.SphereGeometry(0.04, 8, 6), pearl, Math.sin(a) * 0.3 * k, 0.38 + (k - 1) * 0.4 - Math.max(0, Math.cos(a)) * 0.07, Math.cos(a) * 0.3 * k));
       }
       // vestido azul-claro
       chest.add(shirt(M(0x9ec9ff)));

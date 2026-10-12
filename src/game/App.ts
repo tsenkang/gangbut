@@ -7,7 +7,7 @@ import { Match } from './Match';
 import type { MatchConfig, PlayerSetup } from './config';
 import { InputManager } from '../input/InputManager';
 import { Lobby } from '../maps/Lobby';
-import { CHARACTERS, COLORS, HATS } from '../characters/Skins';
+import { HATS } from '../characters/Skins';
 import { COSTUMES } from '../characters/Costumes';
 import { MainMenu } from '../ui/MainMenu';
 import { CharacterSelect, defaultAppearance, type SlotState } from '../ui/CharacterSelect';
@@ -115,8 +115,13 @@ export class App {
     if (brawl) {
       players = [0, 1, 2, 3].map((i) => ({
         slot: i,
-        name: CHARACTERS[i].name,
-        appearance: { character: CHARACTERS[i].id, color: COLORS[(i * 2 + Math.floor(Math.random() * 3)) % COLORS.length].hex, hat: HATS[Math.floor(Math.random() * HATS.length)].id, costume: COSTUMES[1 + ((i * 2 + Math.floor(Math.random() * 6)) % (COSTUMES.length - 1))].id },
+        name: 'Molenga ' + (i + 1),
+        appearance: {
+          character: 'classico',
+          color: [0xff4d5e, 0x3a86ff, 0x3ddc84, 0xffd23f][i],
+          hat: Math.random() < 0.3 ? HATS[1 + Math.floor(Math.random() * (HATS.length - 1))].id : 'nenhum',
+          costume: Math.random() < 0.35 ? COSTUMES[1 + Math.floor(Math.random() * (COSTUMES.length - 1))].id : 'nenhuma',
+        },
         bot: 'facil',
       }));
     } else {
@@ -251,12 +256,13 @@ export class App {
     let n = 1;
     for (let i = 0; i < 4 && bots > 0; i++) {
       if (this.slots[i].deviceId) continue;
-      const used = new Set(players.map((p) => p.appearance.character));
-      const c = CHARACTERS.find((x) => !used.has(x.id)) ?? CHARACTERS[i];
+      // Robô = Clássico com uma cor que ninguém está usando
+      const usedColors = new Set(players.map((p) => p.appearance.color));
+      const color = [0xff4d5e, 0x3a86ff, 0x3ddc84, 0xffd23f, 0xff9f1c, 0x9b5de5, 0xff70a6, 0xf4f1ea].find((c) => !usedColors.has(c))!;
       players.push({
         slot: i,
         name: `CPU ${n++}`,
-        appearance: { character: c.id, color: c.defaultColor, hat: HATS[(i + 2) % HATS.length].id, costume: Math.random() < 0.5 ? COSTUMES[1 + Math.floor(Math.random() * (COSTUMES.length - 1))].id : 'nenhuma' },
+        appearance: { character: 'classico', color, hat: 'nenhum', costume: Math.random() < 0.4 ? COSTUMES[1 + Math.floor(Math.random() * (COSTUMES.length - 1))].id : 'nenhuma' },
         bot: this.setup.difficulty,
       });
       bots--;

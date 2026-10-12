@@ -61,6 +61,10 @@ Os botões de ombro (LB/RB, L1/R1) também agarram. O direcional também anda.
 Controles ligados ou desligados no meio do jogo aparecem num aviso no canto da
 tela. Se o controle de alguém desligar durante a luta, o jogo pausa sozinho.
 
+## Personagens
+
+O padrão é o **Clássico**: um feijãozinho de gelatina liso, de cor única, com olhinhos de ponto, bracinhos curtos e pernas gordinhas (estilo "party brawler"). Também há Gominha, Pão de Forma, Ovo e Pimentão.
+
 ## Fantasias
 
 Na escolha de personagem, a linha **Fantasia** veste o boneco com visuais de paródia

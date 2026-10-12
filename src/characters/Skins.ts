@@ -9,7 +9,7 @@ import { applyCostume, COVERS_HAT, type CostumeId } from './Costumes';
 // Cada parte do corpo vira um "grupo" 3D que segue o corpo físico.
 // ------------------------------------------------------------
 
-export type CharacterId = 'gominha' | 'pao' | 'ovo' | 'pimentao';
+export type CharacterId = 'classico' | 'gominha' | 'pao' | 'ovo' | 'pimentao';
 export type HatId = 'nenhum' | 'festa' | 'cartola' | 'gorro';
 
 export interface CharacterDef {
@@ -22,6 +22,7 @@ export interface CharacterDef {
 }
 
 export const CHARACTERS: CharacterDef[] = [
+  { id: 'classico', name: 'Clássico', description: 'Feijãozinho de gelatina: o molenga raiz, liso e fofo.', defaultColor: 0x3a86ff, voice: 1.1 },
   { id: 'gominha', name: 'Gominha', description: 'Ursinho de goma, brilhante e pulador.', defaultColor: 0xff4d5e, voice: 1.25 },
   { id: 'pao', name: 'Pão de Forma', description: 'Quadradão e fofinho. Cheira a café da manhã.', defaultColor: 0xe9b872, voice: 0.85 },
   { id: 'ovo', name: 'Ovo', description: 'Liso, redondo e um pouco frágil.', defaultColor: 0xf4f1ea, voice: 1.05 },
@@ -83,6 +84,10 @@ const sphere = (r: number) => cached('s' + r, () => new THREE.SphereGeometry(r, 
 const capsule = (r: number, len: number) => cached(`c${r}_${len}`, () => new THREE.CapsuleGeometry(r, len, 8, 16));
 
 function bodyMaterial(char: CharacterId, color: number): THREE.MeshStandardMaterial {
+  if (char === 'classico') {
+    // Fosco e macio, com um brilho leve de borracha
+    return new THREE.MeshPhysicalMaterial({ color, roughness: 0.6, sheen: 0.6, sheenRoughness: 0.5, clearcoat: 0.12, clearcoatRoughness: 0.6 });
+  }
   if (char === 'gominha') {
     // Goma: brilhante, parece doce de gelatina.
     return new THREE.MeshPhysicalMaterial({ color, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.15, sheen: 0.4 });
@@ -103,18 +108,22 @@ function mesh(geo: THREE.BufferGeometry, mat: THREE.Material, x = 0, y = 0, z = 
 const faceDark = new THREE.MeshStandardMaterial({ color: 0x1a1020, roughness: 0.4 });
 const eyeWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
 
-function buildFace(head: THREE.Group, frontZ: number, eyeY: number, scale = 1): Face {
+function buildFace(head: THREE.Group, frontZ: number, eyeY: number, scale = 1, dots = false): Face {
   const eyes: THREE.Object3D[] = [];
   const pupils: THREE.Object3D[] = [];
   const xEyes: THREE.Object3D[] = [];
   for (const sx of [-1, 1]) {
     const eye = new THREE.Group();
-    eye.position.set(sx * 0.115 * scale, eyeY, frontZ - 0.03);
-    const white = mesh(sphere(0.085 * scale), eyeWhite);
-    white.scale.set(1, 1.15, 0.6);
-    eye.add(white);
-    const pupil = mesh(sphere(0.045 * scale), faceDark, 0, 0, 0.045 * scale);
-    pupil.scale.z = 0.5;
+    eye.position.set(sx * (dots ? 0.1 : 0.115) * scale, eyeY, frontZ - 0.03);
+    if (!dots) {
+      const white = mesh(sphere(0.085 * scale), eyeWhite);
+      white.scale.set(1, 1.15, 0.6);
+      eye.add(white);
+    }
+    // Pupila (no estilo "pontinho", o olho é só ela: oval preta)
+    const pupil = mesh(sphere((dots ? 0.042 : 0.045) * scale), faceDark, 0, 0, (dots ? 0.02 : 0.045) * scale);
+    if (dots) pupil.scale.set(0.85, 1.35, 0.5);
+    else pupil.scale.z = 0.5;
     eye.add(pupil);
     pupils.push(pupil);
     // Olho em X (aparece no nocaute)
@@ -134,6 +143,7 @@ function buildFace(head: THREE.Group, frontZ: number, eyeY: number, scale = 1): 
   // Boca: um sorrisinho (meio anel) e uma boca em "O" para gritos.
   const mouth = mesh(cached('smile', () => new THREE.TorusGeometry(0.06, 0.016, 6, 12, Math.PI)), faceDark);
   mouth.rotation.z = Math.PI;
+  if (dots) mouth.scale.setScalar(0.55);
   mouth.position.set(0, eyeY - 0.13 * scale, frontZ - 0.02);
   head.add(mouth);
   const mouthO = mesh(sphere(0.045), faceDark, 0, eyeY - 0.14 * scale, frontZ - 0.025);
@@ -202,18 +212,20 @@ export function buildSkin(app: Appearance): SkinResult {
   const parts = {} as Record<PartName, THREE.Group>;
   for (const n of ['head', 'chest', 'pelvis', 'armL', 'armR', 'foreL', 'foreR', 'legL', 'legR'] as PartName[]) parts[n] = new THREE.Group();
 
-  // Braços e pernas são iguais para todos (bracinhos de luva).
+  // Braços e pernas (bracinhos de luva). O Clássico tem membros mais
+  // curtos e gordinhos, e pés da mesma cor do corpo.
+  const fat = app.character === 'classico';
   for (const side of ['L', 'R'] as const) {
-    parts[('arm' + side) as PartName].add(mesh(capsule(DIM.armR + 0.015, DIM.armHH * 2), mat));
+    parts[('arm' + side) as PartName].add(mesh(capsule(DIM.armR + (fat ? 0.045 : 0.015), DIM.armHH * 2), mat));
     const fore = parts[('fore' + side) as PartName];
-    fore.add(mesh(capsule(DIM.armR + 0.01, DIM.foreHH * 2), mat));
-    const hand = mesh(sphere(0.135), mat, 0, -DIM.handOffset, 0);
+    fore.add(mesh(capsule(DIM.armR + (fat ? 0.04 : 0.01), DIM.foreHH * 2), mat));
+    const hand = mesh(sphere(fat ? 0.155 : 0.135), mat, 0, -DIM.handOffset, 0);
     hand.scale.set(1, 0.95, 1.1);
     fore.add(hand);
     const leg = parts[('leg' + side) as PartName];
-    leg.add(mesh(capsule(DIM.legR + 0.02, DIM.legHH * 2), mat));
-    const foot = mesh(sphere(0.15), mat2, 0, -DIM.legHH - 0.08, 0.06);
-    foot.scale.set(1, 0.6, 1.35);
+    leg.add(mesh(capsule(DIM.legR + (fat ? 0.07 : 0.02), DIM.legHH * 2 - (fat ? 0.06 : 0)), mat));
+    const foot = mesh(sphere(fat ? 0.18 : 0.15), fat ? mat : mat2, 0, -DIM.legHH - (fat ? 0.04 : 0.08), 0.05);
+    foot.scale.set(1, fat ? 0.7 : 0.6, fat ? 1.2 : 1.35);
     leg.add(foot);
   }
 
@@ -229,6 +241,19 @@ export function buildSkin(app: Appearance): SkinResult {
   let frontZ = 0.32;
 
   switch (app.character) {
+    case 'classico': {
+      // Um feijão só: tronco alto + cabeça redonda grudada (sem pescoço)
+      const body = mesh(capsule(0.41, 0.5), mat);
+      body.position.y = 0.06;
+      chest.add(body);
+      const top = mesh(sphere(0.39), mat, 0, -0.04, 0);
+      top.scale.set(1.02, 1, 0.98);
+      head.add(top);
+      face = buildFace(head, 0.37, 0.03, 1, true);
+      headTop = 0.35;
+      frontZ = 0.37;
+      break;
+    }
     case 'gominha': {
       chest.add(mesh(capsule(0.37, 0.34), mat));
       head.add(mesh(sphere(0.34), mat));
@@ -312,7 +337,7 @@ export function buildSkin(app: Appearance): SkinResult {
   const hat = COVERS_HAT.has(costume) ? null : buildHat(app.hat, headTop);
   if (hat) head.add(hat);
   // Fantasia por cima de tudo
-  materials.push(...applyCostume(costume, parts, headTop, frontZ));
+  materials.push(...applyCostume(costume, parts, headTop, frontZ, app.character === 'classico' ? { r: 0.43, len: 0.48, y: 0.04 } : undefined));
   // tudo que a fantasia criou também faz sombra
   for (const n of Object.keys(parts) as PartName[]) parts[n].traverse((o) => ((o as THREE.Mesh).isMesh ? (o.castShadow = true) : null));
 
