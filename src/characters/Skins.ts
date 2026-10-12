@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { DIM, type PartName } from './Ragdoll';
+import { applyCostume, COVERS_HAT, type CostumeId } from './Costumes';
 
 // ------------------------------------------------------------
 // Aparência dos lutadores: os 4 personagens, as cores e os chapéus.
@@ -50,6 +51,7 @@ export interface Appearance {
   character: CharacterId;
   color: number;
   hat: HatId;
+  costume?: CostumeId;
 }
 
 /** Peças do rosto, para mudar a expressão (olhos em X no nocaute...). */
@@ -224,6 +226,7 @@ export function buildSkin(app: Appearance): SkinResult {
   const chest = parts.chest;
   let face: Face;
   let headTop = 0.32;
+  let frontZ = 0.32;
 
   switch (app.character) {
     case 'gominha': {
@@ -238,6 +241,7 @@ export function buildSkin(app: Appearance): SkinResult {
       belly.scale.set(1, 1.2, 0.5);
       chest.add(belly);
       face = buildFace(head, 0.33, 0.06);
+      frontZ = 0.33;
       headTop = 0.3;
       break;
     }
@@ -257,6 +261,7 @@ export function buildSkin(app: Appearance): SkinResult {
       const inner = mesh(cached('paoInner', () => new RoundedBoxGeometry(0.56, 0.5, 0.06, 2, 0.03)), crumb, 0, -0.01, 0.24);
       head.add(inner);
       face = buildFace(head, 0.3, 0.04);
+      frontZ = 0.3;
       headTop = 0.33;
       break;
     }
@@ -303,8 +308,13 @@ export function buildSkin(app: Appearance): SkinResult {
     }
   }
 
-  const hat = buildHat(app.hat, headTop);
+  const costume = app.costume ?? 'nenhuma';
+  const hat = COVERS_HAT.has(costume) ? null : buildHat(app.hat, headTop);
   if (hat) head.add(hat);
+  // Fantasia por cima de tudo
+  materials.push(...applyCostume(costume, parts, headTop, frontZ));
+  // tudo que a fantasia criou também faz sombra
+  for (const n of Object.keys(parts) as PartName[]) parts[n].traverse((o) => ((o as THREE.Mesh).isMesh ? (o.castShadow = true) : null));
 
   return { parts, face: face!, materials };
 }

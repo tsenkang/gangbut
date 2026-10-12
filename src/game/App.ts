@@ -8,6 +8,7 @@ import type { MatchConfig, PlayerSetup } from './config';
 import { InputManager } from '../input/InputManager';
 import { Lobby } from '../maps/Lobby';
 import { CHARACTERS, COLORS, HATS } from '../characters/Skins';
+import { COSTUMES } from '../characters/Costumes';
 import { MainMenu } from '../ui/MainMenu';
 import { CharacterSelect, defaultAppearance, type SlotState } from '../ui/CharacterSelect';
 import { MatchSetup, type SetupState } from '../ui/MatchSetup';
@@ -115,7 +116,7 @@ export class App {
       players = [0, 1, 2, 3].map((i) => ({
         slot: i,
         name: CHARACTERS[i].name,
-        appearance: { character: CHARACTERS[i].id, color: COLORS[(i * 2 + Math.floor(Math.random() * 3)) % COLORS.length].hex, hat: HATS[Math.floor(Math.random() * HATS.length)].id },
+        appearance: { character: CHARACTERS[i].id, color: COLORS[(i * 2 + Math.floor(Math.random() * 3)) % COLORS.length].hex, hat: HATS[Math.floor(Math.random() * HATS.length)].id, costume: COSTUMES[1 + ((i * 2 + Math.floor(Math.random() * 6)) % (COSTUMES.length - 1))].id },
         bot: 'facil',
       }));
     } else {
@@ -255,7 +256,7 @@ export class App {
       players.push({
         slot: i,
         name: `CPU ${n++}`,
-        appearance: { character: c.id, color: c.defaultColor, hat: HATS[(i + 2) % HATS.length].id },
+        appearance: { character: c.id, color: c.defaultColor, hat: HATS[(i + 2) % HATS.length].id, costume: Math.random() < 0.5 ? COSTUMES[1 + Math.floor(Math.random() * (COSTUMES.length - 1))].id : 'nenhuma' },
         bot: this.setup.difficulty,
       });
       bots--;

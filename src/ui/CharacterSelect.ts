@@ -1,6 +1,7 @@
 import { h, hex, uiRoot, type Screen } from './UI';
 import type { InputManager, Device } from '../input/InputManager';
 import { CHARACTERS, COLORS, HATS, type Appearance } from '../characters/Skins';
+import { COSTUMES } from '../characters/Costumes';
 import { SLOT_COLORS } from '../game/config';
 import { audio } from '../audio/Audio';
 import type { MenuAction } from '../input/types';
@@ -15,7 +16,7 @@ import { buttonNames, GamepadSource } from '../input/Gamepads';
 export interface SlotState {
   deviceId: string | null;
   appearance: Appearance;
-  row: number; // 0 personagem, 1 cor, 2 chapéu, 3 pronto
+  row: number; // 0 personagem, 1 cor, 2 chapéu, 3 fantasia, 4 pronto
   ready: boolean;
 }
 
@@ -101,6 +102,9 @@ export class CharacterSelect implements Screen {
     } else if (row === 2) {
       const i = HATS.findIndex((c) => c.id === a.hat);
       a.hat = HATS[(i + dir + HATS.length) % HATS.length].id;
+    } else if (row === 3) {
+      const i = COSTUMES.findIndex((c) => c.id === (a.costume ?? 'nenhuma'));
+      a.costume = COSTUMES[(i + dir + COSTUMES.length) % COSTUMES.length].id;
     }
     s.appearance = a;
     audio.play('ui');
@@ -115,11 +119,11 @@ export class CharacterSelect implements Screen {
       }
       return;
     }
-    if (a === 'up') s.row = (s.row + 3) % 4;
-    else if (a === 'down') s.row = (s.row + 1) % 4;
-    else if ((a === 'left' || a === 'right') && s.row < 3) this.cycle(s, s.row, a === 'left' ? -1 : 1);
+    if (a === 'up') s.row = (s.row + 4) % 5;
+    else if (a === 'down') s.row = (s.row + 1) % 5;
+    else if ((a === 'left' || a === 'right') && s.row < 4) this.cycle(s, s.row, a === 'left' ? -1 : 1);
     else if (a === 'confirm') {
-      if (s.row === 3) {
+      if (s.row === 4) {
         s.ready = true;
         audio.play('join');
       } else {
@@ -142,7 +146,7 @@ export class CharacterSelect implements Screen {
     if (t.dataset.row !== undefined) {
       const row = +t.dataset.row;
       if (t.dataset.dir) this.cycle(s, row, +t.dataset.dir);
-      else if (row === 3) s.ready = !s.ready;
+      else if (row === 4) s.ready = !s.ready;
       s.row = row;
     }
     this.render();
@@ -204,12 +208,14 @@ export class CharacterSelect implements Screen {
       const ch = CHARACTERS.find((x) => x.id === s.appearance.character)!;
       const col = COLORS.find((x) => x.hex === s.appearance.color);
       const hat = HATS.find((x) => x.id === s.appearance.hat)!;
+      const costume = COSTUMES.find((x) => x.id === (s.appearance.costume ?? 'nenhuma'))!;
       const dev = this.input.getSource(s.deviceId);
       const names = dev instanceof GamepadSource ? buttonNames(dev.type) : null;
       const rows = [
         `<span class="v">${ch.name}</span>`,
         `<span class="v"><i class="sw" style="background:${hex(s.appearance.color)}"></i>${col?.name ?? 'Cor'}</span>`,
         `<span class="v">${hat.name}</span>`,
+        `<span class="v">🎭 ${costume.name}</span>`,
       ];
       c.innerHTML =
         `<div class="who">J${i + 1} <small>${this.deviceLabel(s.deviceId)}</small></div>` +
@@ -219,8 +225,8 @@ export class CharacterSelect implements Screen {
               `<div class="opt ${s.row === k && !s.ready ? 'focus' : ''}" data-row="${k}"><span class="arrow" data-row="${k}" data-dir="-1">◀</span>${r}<span class="arrow" data-row="${k}" data-dir="1">▶</span></div>`,
           )
           .join('') +
-        `<div class="desc">${ch.description}</div>` +
-        `<div class="opt readybtn ${s.row === 3 && !s.ready ? 'focus' : ''}" data-row="3">${s.ready ? '✔ PRONTO!' : `Pronto? (${names ? names.jump : 'pular'})`}</div>`;
+        `<div class="desc">${costume.id !== 'nenhuma' ? costume.hint : ch.description}</div>` +
+        `<div class="opt readybtn ${s.row === 4 && !s.ready ? 'focus' : ''}" data-row="4">${s.ready ? '✔ PRONTO!' : `Pronto? (${names ? names.jump : 'pular'})`}</div>`;
     });
   }
 

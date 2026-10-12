@@ -61,6 +61,13 @@ Os botões de ombro (LB/RB, L1/R1) também agarram. O direcional também anda.
 Controles ligados ou desligados no meio do jogo aparecem num aviso no canto da
 tela. Se o controle de alguém desligar durante a luta, o jogo pausa sozinho.
 
+## Fantasias
+
+Na escolha de personagem, a linha **Fantasia** veste o boneco com visuais de paródia
+que lembram gente famosa (sem nomes reais): Rei do Topete, Gênio Descabelado,
+Astro do Pop, Craque Camisa 10, Majestade e Bigode Artista. Combinam com qualquer
+personagem e cor. Para criar uma nova, veja `src/characters/Costumes.ts`.
+
 ## Mapas
 
 | Mapa | Perigo |
