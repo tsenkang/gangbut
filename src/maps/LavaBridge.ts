@@ -191,6 +191,23 @@ export class LavaBridge extends GameMap {
     }
   }
 
+  botAdvice(p: THREE.Vector3): THREE.Vector3 | null {
+    const under = this.planks.find((pl) => pl.state !== 'ok' && Math.abs(pl.base.x - p.x) < PLANK_W * 0.6);
+    if (!under || p.y < -1) return null;
+    // procura a tábua firme mais perto (ou o penhasco)
+    let best = new THREE.Vector3(p.x < 0 ? -8.5 : 8.5, 0, 0);
+    let bd = Math.abs(best.x - p.x);
+    for (const pl of this.planks) {
+      if (pl.state !== 'ok') continue;
+      const d = Math.abs(pl.base.x - p.x);
+      if (d < bd) {
+        bd = d;
+        best = new THREE.Vector3(pl.base.x, 0, 0);
+      }
+    }
+    return best;
+  }
+
   deathAt(p: THREE.Vector3): DeathKind {
     if (p.y < LAVA_Y + 1.4) return 'lava';
     return 'none';

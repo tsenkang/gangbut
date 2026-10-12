@@ -73,6 +73,14 @@ export abstract class GameMap {
   update(_dt: number, _time: number, _arena: ArenaApi): void {}
 
   /** Este ponto mata na hora? (lava, água, ficou para trás no trem...) */
+  /**
+   * Dica de perigo para os robôs: se houver um lugar seguro para onde
+   * correr agora (fugir do túnel, da prensa...), devolve esse ponto.
+   */
+  botAdvice(_p: THREE.Vector3): THREE.Vector3 | null {
+    return null;
+  }
+
   deathAt(p: THREE.Vector3): DeathKind {
     return p.y < this.killY ? 'fall' : 'none';
   }

@@ -490,6 +490,22 @@ export class Train extends GameMap {
     this.poles.push({ obj: g, x: g.position.x, side, hit: new Set() });
   }
 
+  botAdvice(p: THREE.Vector3): THREE.Vector3 | null {
+    // Túnel vindo: desce para o engate mais perto (lugar baixo e seguro)
+    if (this.tunnelTimer < 3.5 || this.tunnelX < 900) {
+      if (p.y < -0.6) return null; // já está lá embaixo
+      const gaps = [(WAGONS[0] + WAGONS[1]) / 2, (WAGONS[1] + WAGONS[2]) / 2];
+      const gx = Math.abs(p.x - gaps[0]) < Math.abs(p.x - gaps[1]) ? gaps[0] : gaps[1];
+      return new THREE.Vector3(gx, 0, 0);
+    }
+    // Poste vindo do meu lado: vai para o meio do teto
+    for (const pole of this.poles) {
+      const ahead = pole.x - p.x;
+      if (ahead > -1 && ahead < 22 && p.z * pole.side > HALF_W - 0.95) return new THREE.Vector3(p.x, 0, 0);
+    }
+    return null;
+  }
+
   deathAt(p: THREE.Vector3): DeathKind {
     if (p.y < -4.2) return 'left';
     const offTrain = Math.abs(p.z) > HALF_W + 0.4 || p.x < BACK - 0.4 || p.x > FRONT + 5.6;

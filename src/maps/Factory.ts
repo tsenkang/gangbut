@@ -282,6 +282,17 @@ export class Factory extends GameMap {
     this.press.setNextKinematicTranslation({ x: PRESS_X, y: this.pressY, z: 0 });
   }
 
+  botAdvice(p: THREE.Vector3): THREE.Vector3 | null {
+    // Prensa avisando ou descendo: sai de baixo dela
+    const danger = this.pressState === 'warn' || this.pressState === 'slam' || (this.pressState === 'idle' && this.pressT > 2.8);
+    if (danger && Math.abs(p.x - PRESS_X) < 2.2 && Math.abs(p.z) < 2.4) {
+      return new THREE.Vector3(p.x, 0, p.z >= 0 ? 3.4 : -3.4);
+    }
+    // Em cima da esteira perto do buraco: sai dela
+    if (Math.abs(p.z) < BELT_Z + 0.2 && p.x > 2) return new THREE.Vector3(p.x - 1.5, 0, p.z >= 0 ? 3.2 : -3.2);
+    return null;
+  }
+
   private setPress(s: Factory['pressState']) {
     this.pressState = s;
     this.pressT = 0;

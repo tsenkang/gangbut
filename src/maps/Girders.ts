@@ -174,6 +174,16 @@ export class Girders extends GameMap {
     this.ctx.physics.addStaticBox({ x: b.x, y: y - 0.275, z: b.z }, half, { friction: 1 });
   }
 
+  botAdvice(p: THREE.Vector3): THREE.Vector3 | null {
+    // Viga do guindaste chegando: vai para a viga de trás (fora do caminho)
+    const coming = this.hookWait < 2.5 || Math.abs(this.hookX) < SWEEP + 4;
+    const ahead = (p.x - this.hookX) * this.hookDir;
+    if (coming && ahead > -1.5 && Math.abs(p.z + 1.5) < 2.7 && p.y > -0.5) {
+      return new THREE.Vector3(THREE.MathUtils.clamp(p.x, -6.5, 6.5), 0, -4);
+    }
+    return null;
+  }
+
   update(dt: number, time: number, arena: ArenaApi) {
     // ----- viga do guindaste: espera, avisa e atravessa o mapa
     if (this.hookWait > 0) {
