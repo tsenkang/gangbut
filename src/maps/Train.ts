@@ -1,5 +1,35 @@
 import * as THREE from 'three';
 import { GameMap, canvasTexture, type ArenaApi, type DeathKind } from './MapBase';
+import { grimeTexture } from './City';
+
+/** Roda de trem com raios, para dar para ver girando. */
+function wheelTexture() {
+  return canvasTexture(128, 128, (g) => {
+    g.fillStyle = '#2a2b2e';
+    g.fillRect(0, 0, 128, 128);
+    g.fillStyle = '#8f949a';
+    g.beginPath();
+    g.arc(64, 64, 60, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#3a3c40';
+    g.beginPath();
+    g.arc(64, 64, 50, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = '#8f949a';
+    g.lineWidth = 7;
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      g.beginPath();
+      g.moveTo(64, 64);
+      g.lineTo(64 + Math.cos(a) * 50, 64 + Math.sin(a) * 50);
+      g.stroke();
+    }
+    g.fillStyle = '#8f949a';
+    g.beginPath();
+    g.arc(64, 64, 12, 0, Math.PI * 2);
+    g.fill();
+  });
+}
 
 // ------------------------------------------------------------
 // Mapa 4 — TREM EM MOVIMENTO
@@ -16,6 +46,10 @@ const WAGONS = [-(WAGON_LEN + GAP), 0, WAGON_LEN + GAP];
 const SPEED = 24; // velocidade do cenário passando
 const FRONT = WAGONS[2] + WAGON_LEN / 2;
 const BACK = WAGONS[0] - WAGON_LEN / 2;
+const GAUGE = 1.44; // bitola: distância entre os trilhos
+const TRACKS = [0, 5.2]; // nossa linha e uma linha ao lado
+const SLEEPER_GAP = 1.0;
+const SLEEPERS_PER_TRACK = 200;
 
 interface Pole {
   obj: THREE.Object3D;
@@ -42,6 +76,11 @@ export class Train extends GameMap {
   };
 
   private groundTex!: THREE.Texture;
+  private ballastTex!: THREE.Texture;
+  private sleepers!: THREE.InstancedMesh;
+  private sleeperOffset = 0;
+  private telePoles: THREE.Object3D[] = [];
+  private wheelMat = new THREE.MeshStandardMaterial({ map: wheelTexture(), metalness: 0.7, roughness: 0.4 });
   private scenery: THREE.Object3D[] = [];
   private poles: Pole[] = [];
   private poleTimer = 5;
@@ -68,87 +107,223 @@ export class Train extends GameMap {
       shadowExtent: 16,
     });
 
-    // Chão que passa (textura andando)
+    // ---------------- chão e via férrea ----------------
+    // Terra batida com mato ralo (a textura corre para dar a velocidade)
     this.groundTex = canvasTexture(
       256,
       256,
       (g) => {
-        g.fillStyle = '#6b6152';
+        g.fillStyle = '#6e6450';
         g.fillRect(0, 0, 256, 256);
-        for (let i = 0; i < 300; i++) {
-          g.fillStyle = Math.random() < 0.5 ? '#5d5446' : '#7a6f5f';
-          g.fillRect(Math.random() * 256, Math.random() * 256, 6, 3);
+        for (let i = 0; i < 500; i++) {
+          const r = Math.random();
+          g.fillStyle = r < 0.35 ? '#5f573f' : r < 0.6 ? '#7d735c' : r < 0.8 ? '#58603a' : '#6b7244';
+          g.fillRect(Math.random() * 256, Math.random() * 256, 3 + Math.random() * 6, 2 + Math.random() * 3);
         }
-        // trilhos
-        g.fillStyle = '#8a7a66';
-        g.fillRect(0, 100, 256, 56);
-        g.fillStyle = '#5a4a3a';
-        for (let x = 0; x < 256; x += 16) g.fillRect(x, 102, 8, 52);
-        g.fillStyle = '#c0c0c0';
-        g.fillRect(0, 110, 256, 4);
-        g.fillRect(0, 142, 256, 4);
       },
-      [30, 1],
+      [40, 8],
     );
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 60), new THREE.MeshStandardMaterial({ map: this.groundTex, roughness: 1 }));
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 80), new THREE.MeshStandardMaterial({ map: this.groundTex, roughness: 1 }));
     ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -4.4;
+    ground.position.y = -4.75;
     this.deco(ground, false);
-    const farGround = new THREE.Mesh(new THREE.PlaneGeometry(600, 400), this.material(0x5f574a));
+    const farGround = new THREE.Mesh(new THREE.PlaneGeometry(700, 500), this.material(0x5f574a));
     farGround.rotation.x = -Math.PI / 2;
-    farGround.position.y = -4.5;
+    farGround.position.y = -4.8;
     this.deco(farGround, false);
 
-    // Vagões: o teto é onde a briga acontece (topo em y = 0)
-    const colors = [0xd94a3a, 0x2e86ab, 0xf2a541];
+    // Leito de brita (pedrinhas cinzas) embaixo de cada linha
+    this.ballastTex = canvasTexture(
+      128,
+      128,
+      (g) => {
+        g.fillStyle = '#77736c';
+        g.fillRect(0, 0, 128, 128);
+        for (let i = 0; i < 700; i++) {
+          const c = 90 + Math.floor(Math.random() * 90);
+          g.fillStyle = `rgb(${c},${c - 4},${c - 10})`;
+          g.fillRect(Math.random() * 128, Math.random() * 128, 2 + Math.random() * 3, 2 + Math.random() * 2);
+        }
+      },
+      [100, 1],
+    );
+    const ballastMat = new THREE.MeshStandardMaterial({ map: this.ballastTex, roughness: 1 });
+    const sleeperMat = new THREE.MeshStandardMaterial({ color: 0x4a3626, roughness: 0.95 });
+    const railMat = new THREE.MeshStandardMaterial({ color: 0x9da3a8, metalness: 0.9, roughness: 0.32 });
+    const railBase = new THREE.MeshStandardMaterial({ color: 0x5a3a28, metalness: 0.4, roughness: 0.8 }); // lateral enferrujada
+    for (const tz of TRACKS) {
+      // aterro de brita em forma de trapézio
+      const bed = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 400, 4, 1), ballastMat);
+      bed.rotation.z = Math.PI / 2;
+      bed.rotation.x = Math.PI / 4;
+      bed.scale.set(0.45, 1, 2.6);
+      bed.position.set(0, -4.72, tz);
+      this.deco(bed, false);
+      // dois trilhos (perfil: boleto brilhante + alma enferrujada)
+      for (const rz of [-GAUGE / 2, GAUGE / 2]) {
+        const head = new THREE.Mesh(new THREE.BoxGeometry(400, 0.07, 0.09), railMat);
+        head.position.set(0, -4.16, tz + rz);
+        const web = new THREE.Mesh(new THREE.BoxGeometry(400, 0.1, 0.04), railBase);
+        web.position.set(0, -4.24, tz + rz);
+        const foot = new THREE.Mesh(new THREE.BoxGeometry(400, 0.03, 0.16), railBase);
+        foot.position.set(0, -4.3, tz + rz);
+        this.deco(head, false);
+        this.deco(web, false);
+        this.deco(foot, false);
+      }
+    }
+    // Dormentes de madeira (muitos, num só desenho) que passam correndo
+    this.sleepers = new THREE.InstancedMesh(new THREE.BoxGeometry(0.26, 0.13, 2.6), sleeperMat, SLEEPERS_PER_TRACK * TRACKS.length);
+    this.sleepers.receiveShadow = true;
+    this.ctx.root.add(this.sleepers);
+    this.placeSleepers(0);
+
+    // Postes da rede elétrica do lado de lá, com fios contínuos
+    const wood = this.material(0x5a4632, { roughness: 1 });
+    for (let i = 0; i < 9; i++) {
+      const pole = new THREE.Group();
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.17, 9, 8), wood);
+      post.position.y = 4.5;
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 2.4), wood);
+      arm.position.y = 8.4;
+      pole.add(post, arm);
+      for (const z of [-1, 0, 1]) {
+        const ins = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.18, 6), this.material(0x3b6e8f, { roughness: 0.2 }));
+        ins.position.set(0, 8.56, z);
+        pole.add(ins);
+      }
+      pole.position.set(-90 + i * 25, -4.75, -9);
+      this.deco(pole, false);
+      this.telePoles.push(pole);
+    }
+    for (const z of [-1, 0, 1]) {
+      const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 400, 4), this.material(0x111111));
+      wire.rotation.z = Math.PI / 2;
+      wire.position.set(0, 3.7, -9 + z);
+      this.deco(wire, false);
+    }
+
+    // ---------------- vagões ----------------
+    // O teto é onde a briga acontece (topo em y = 0)
+    const colors = [0x8c2f24, 0x2f5d73, 0x7a6a2a];
     const roofTex = canvasTexture(
-      64,
+      128,
       64,
       (g) => {
-        g.fillStyle = '#6b6b70';
-        g.fillRect(0, 0, 64, 64);
-        g.fillStyle = '#5c5c61';
-        g.fillRect(0, 0, 64, 4);
+        g.fillStyle = '#5e6064';
+        g.fillRect(0, 0, 128, 64);
+        // nervuras da chapa e sujeira
+        g.fillStyle = '#4d4f53';
+        for (let x = 0; x < 128; x += 16) g.fillRect(x, 0, 3, 64);
+        for (let i = 0; i < 40; i++) {
+          g.fillStyle = 'rgba(40,25,10,0.15)';
+          g.fillRect(Math.random() * 128, Math.random() * 64, 8, 4);
+        }
       },
-      [1, 8],
+      [4, 1],
     );
-    const roofMat = new THREE.MeshStandardMaterial({ map: roofTex, roughness: 0.8, metalness: 0.2 });
+    const roofMat = new THREE.MeshStandardMaterial({ map: roofTex, roughness: 0.75, metalness: 0.35 });
+    const dark = this.material(0x1d1e21, { metalness: 0.6, roughness: 0.6 });
+    const steelMat = this.material(0x45484d, { metalness: 0.7, roughness: 0.45 });
     WAGONS.forEach((x, i) => {
-      this.box({ x, y: -1.7, z: 0 }, { x: WAGON_LEN, y: 3.2, z: HALF_W * 2 }, this.material(colors[i], { roughness: 0.6 }));
+      const body = new THREE.MeshStandardMaterial({ map: grimeTexture('#' + new THREE.Color(colors[i]).getHexString(), [2, 1], { dark: 'rgba(30,20,10,0.25)' }), roughness: 0.6, metalness: 0.2 });
+      this.box({ x, y: -1.75, z: 0 }, { x: WAGON_LEN, y: 3.1, z: HALF_W * 2 }, body);
       this.box({ x, y: -0.05, z: 0 }, { x: WAGON_LEN + 0.1, y: 0.1, z: HALF_W * 2 + 0.1 }, roofMat);
-      // janelas
-      for (let k = -2; k <= 2; k++) {
-        for (const z of [HALF_W + 0.01, -HALF_W - 0.01]) {
-          const w = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.8), new THREE.MeshStandardMaterial({ color: 0x9fd8ff, emissive: 0x335577, roughness: 0.1 }));
-          w.position.set(x + k * 1.3, -1.1, z);
+      // faixa amarela e janelas com cortininha
+      for (const z of [HALF_W + 0.01, -HALF_W - 0.01]) {
+        const stripe = new THREE.Mesh(new THREE.PlaneGeometry(WAGON_LEN, 0.12), this.material(0xe0b030));
+        stripe.position.set(x, -1.75, z);
+        if (z < 0) stripe.rotation.y = Math.PI;
+        this.deco(stripe, false);
+        for (let k = -2; k <= 2; k++) {
+          const w = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.75), new THREE.MeshStandardMaterial({ color: 0x9cb8c8, emissive: 0x3a4a55, roughness: 0.08, metalness: 0.3 }));
+          w.position.set(x + k * 1.2, -1.1, z * 1.001);
           if (z < 0) w.rotation.y = Math.PI;
           this.deco(w, false);
         }
+        // portas nas pontas
+        for (const dx of [-WAGON_LEN / 2 + 0.55, WAGON_LEN / 2 - 0.55]) {
+          const door = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 2.2), this.material(0x2a2a2e));
+          door.position.set(x + dx, -1.95, z * 1.002);
+          if (z < 0) door.rotation.y = Math.PI;
+          this.deco(door, false);
+        }
       }
       // Corrimão na lateral do teto (para se pendurar)
-      for (const z of [HALF_W + 0.12, -HALF_W - 0.12]) this.box({ x, y: -0.45, z }, { x: WAGON_LEN - 0.6, y: 0.08, z: 0.08 }, this.material(0xdddddd, { metalness: 0.7 }));
-      // rodas
-      for (const dx of [-2.4, 2.4])
-        for (const z of [-1.1, 1.1]) {
-          const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.25, 16), this.material(0x222222, { metalness: 0.6 }));
+      for (const z of [HALF_W + 0.12, -HALF_W - 0.12]) this.box({ x, y: -0.45, z }, { x: WAGON_LEN - 0.6, y: 0.08, z: 0.08 }, this.material(0xcfd2d6, { metalness: 0.8 }));
+      // chassi por baixo
+      const chassis = new THREE.Mesh(new THREE.BoxGeometry(WAGON_LEN - 0.4, 0.3, 2.2), dark);
+      chassis.position.set(x, -3.42, 0);
+      this.deco(chassis, false);
+      // dois truques (conjuntos de rodas) apoiados nos trilhos
+      for (const dx of [-2.4, 2.4]) {
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.3, 1.85), steelMat);
+        frame.position.set(x + dx, -3.68, 0);
+        this.deco(frame, false);
+        for (const ax of [-0.75, 0.75]) {
+          const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, GAUGE + 0.3, 6), steelMat);
+          axle.rotation.x = Math.PI / 2;
+          axle.position.set(x + dx + ax, -3.7, 0);
+          this.deco(axle, false);
+          for (const z of [-GAUGE / 2, GAUGE / 2]) {
+            const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.11, 18), this.wheelMat);
+            wheel.rotation.x = Math.PI / 2;
+            wheel.position.set(x + dx + ax, -3.7, z);
+            this.deco(wheel, false);
+            this.wheels.push(wheel);
+          }
+        }
+      }
+    });
+    // Engates entre vagões (lugar seguro mais baixo!) com para-choques e sanfona
+    for (let i = 0; i < 2; i++) {
+      const gx = (WAGONS[i] + WAGONS[i + 1]) / 2;
+      this.box({ x: gx, y: -1.5, z: 0 }, { x: GAP + 0.4, y: 0.25, z: 1.2 }, this.material(0x3a3c40, { metalness: 0.6 }));
+      const bellows = new THREE.Mesh(new THREE.BoxGeometry(GAP + 0.1, 1.9, 1.5), this.material(0x1c1c1c, { roughness: 1 }));
+      bellows.position.set(gx, -2.65, 0);
+      this.deco(bellows, false);
+      for (const z of [-0.8, 0.8])
+        for (const s of [-1, 1]) {
+          const buf = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.45, 10), steelMat);
+          buf.rotation.z = Math.PI / 2;
+          buf.position.set(gx + s * 0.45, -3.25, z);
+          this.deco(buf, false);
+        }
+    }
+    // Locomotiva diesel (na frente): capô comprido, cabine e farol
+    const loco = new THREE.MeshStandardMaterial({ map: grimeTexture('#b8322a', [2, 1], { dark: 'rgba(20,10,5,0.3)' }), roughness: 0.55, metalness: 0.25 });
+    this.box({ x: FRONT + 3.2, y: -2.1, z: 0 }, { x: 6, y: 2.4, z: 2.6 }, loco);
+    this.box({ x: FRONT + 1.2, y: -0.1, z: 0 }, { x: 2, y: 1.6, z: 2.8 }, loco); // cabine (dá para subir)
+    this.box({ x: FRONT + 1.2, y: 0.75, z: 0 }, { x: 2.2, y: 0.1, z: 3 }, dark, { collide: false });
+    for (const z of [-1.41, 1.41]) {
+      const cabWin = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.6), new THREE.MeshStandardMaterial({ color: 0x223040, emissive: 0x111a22, roughness: 0.05 }));
+      cabWin.position.set(FRONT + 1.2, 0.1, z);
+      if (z < 0) cabWin.rotation.y = Math.PI;
+      this.deco(cabWin, false);
+    }
+    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.6, 2, 2.4), this.material(0xe8e3d8));
+    nose.position.set(FRONT + 6.4, -2.2, 0);
+    this.deco(nose);
+    const headlight = new THREE.Mesh(new THREE.CircleGeometry(0.22, 16), new THREE.MeshBasicMaterial({ color: 0xfff2c0 }));
+    headlight.position.set(FRONT + 6.71, -1.6, 0);
+    headlight.rotation.y = Math.PI / 2;
+    this.deco(headlight, false);
+    const chimney = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.6, 10), dark);
+    chimney.position.set(FRONT + 4.4, -0.6, 0);
+    this.deco(chimney);
+    for (const dx of [2, 4.6]) {
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.3, 1.85), steelMat);
+      frame.position.set(FRONT + dx, -3.68, 0);
+      this.deco(frame, false);
+      for (const ax of [-0.75, 0.75])
+        for (const z of [-GAUGE / 2, GAUGE / 2]) {
+          const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.11, 18), this.wheelMat);
           wheel.rotation.x = Math.PI / 2;
-          wheel.position.set(x + dx, -3.6, z);
+          wheel.position.set(FRONT + dx + ax, -3.7, z);
           this.deco(wheel, false);
           this.wheels.push(wheel);
         }
-    });
-    // Engates entre vagões (lugar seguro mais baixo!)
-    for (let i = 0; i < 2; i++) {
-      const gx = (WAGONS[i] + WAGONS[i + 1]) / 2;
-      this.box({ x: gx, y: -1.5, z: 0 }, { x: GAP + 0.4, y: 0.25, z: 1.2 }, this.material(0x444444, { metalness: 0.6 }));
     }
-    // Locomotiva (na frente)
-    const loco = this.material(0x1d3557, { roughness: 0.5 });
-    this.box({ x: FRONT + 3, y: -1.7, z: 0 }, { x: 5, y: 3.2, z: 2.8 }, loco);
-    this.box({ x: FRONT + 1.4, y: 0.6, z: 0 }, { x: 1.8, y: 1.4, z: 2.6 }, 0x457b9d);
-    const chimney = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 1.4, 12), this.material(0x222222));
-    chimney.position.set(FRONT + 4.4, 0.6, 0);
-    this.deco(chimney);
 
     // Cenário que passa: árvores e morros
     for (let i = 0; i < 26; i++) {
@@ -192,9 +367,30 @@ export class Train extends GameMap {
     this.spawns = [new THREE.Vector3(-2.2, 0.08, 0.3), new THREE.Vector3(2.2, 0.08, -0.3), new THREE.Vector3(-8.6, 0.08, 0), new THREE.Vector3(8.6, 0.08, 0)];
   }
 
+  /** Coloca os dormentes (deslocados pelo movimento do trem). */
+  private placeSleepers(offset: number) {
+    const m = new THREE.Matrix4();
+    let n = 0;
+    for (const tz of TRACKS)
+      for (let i = 0; i < SLEEPERS_PER_TRACK; i++) {
+        let x = -100 + i * SLEEPER_GAP - offset;
+        if (x < -100) x += SLEEPERS_PER_TRACK * SLEEPER_GAP;
+        m.makeTranslation(x, -4.37, tz);
+        this.sleepers.setMatrixAt(n++, m);
+      }
+    this.sleepers.instanceMatrix.needsUpdate = true;
+  }
+
   update(dt: number, time: number, arena: ArenaApi) {
-    // Cenário passando
-    this.groundTex.offset.x += (SPEED * dt) / (400 / 30);
+    // Cenário passando (chão, brita, dormentes, postes)
+    this.groundTex.offset.x += (SPEED * dt) / (400 / 40);
+    this.ballastTex.offset.x += (SPEED * dt) / (400 / 100);
+    this.sleeperOffset = (this.sleeperOffset + SPEED * dt) % SLEEPER_GAP;
+    this.placeSleepers(this.sleeperOffset);
+    for (const p of this.telePoles) {
+      p.position.x -= SPEED * dt;
+      if (p.position.x < -110) p.position.x += 225;
+    }
     for (const s of this.scenery) {
       s.position.x -= SPEED * dt;
       if (s.position.x < -110) s.position.x += 220;
