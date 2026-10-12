@@ -52,6 +52,9 @@ export class Bot implements InputSource {
   private dir = new THREE.Vector3();
   private punchTimer = 0;
   private toggle = false;
+  /** Segurando o soco para soltar um socão (segundos restantes). */
+  private holdPunch = 0;
+  private holdSide: 'punchL' | 'punchR' = 'punchL';
   private modeTime = 0;
   private wanderDir = new THREE.Vector3(1, 0, 0);
   private escapeTimer = 0;
@@ -94,6 +97,10 @@ export class Bot implements InputSource {
       this.decide();
     }
     this.act(dt);
+    if (this.holdPunch > 0) {
+      this.holdPunch -= dt;
+      if (this.holdPunch > 0 && !f.hands.L.holding() && !f.hands.R.holding()) o[this.holdSide] = true;
+    }
 
     // Converte a direção do mundo para "analógico" relativo à câmera.
     this.dir.lerp(this.wantDir, 0.2);
@@ -284,6 +291,12 @@ export class Bot implements InputSource {
           this.toggle = !this.toggle;
           if (this.toggle) o.punchL = true;
           else o.punchR = true;
+          // De vez em quando carrega um socão
+          const chargeChance = this.difficulty === 'dificil' ? 0.3 : this.difficulty === 'medio' ? 0.18 : 0.06;
+          if (Math.random() < chargeChance) {
+            this.holdPunch = 0.35 + Math.random() * 0.45;
+            this.holdSide = this.toggle ? 'punchL' : 'punchR';
+          }
         }
       }
       // voadora: no ar, aperta soco

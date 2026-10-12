@@ -79,7 +79,7 @@ export class Hud {
       const d = h(
         'div',
         'legend' + (bigLegend ? ' big' : ''),
-        `<b>${f.name}</b><span><kbd>${L.move}</kbd> andar</span><span><kbd>${L.jump}</kbd> pular</span><span><kbd>${L.punch}</kbd> socar</span><span><kbd>${L.grab}</kbd> agarrar (segure)</span><span><kbd>${L.headbutt}</kbd> cabeçada</span><span><kbd>${L.pause}</kbd> pausa</span>`,
+        `<b>${f.name}</b><span><kbd>${L.move}</kbd> andar</span><span><kbd>${L.jump}</kbd> pular</span><span><kbd>${L.punch}</kbd> socar (segure: socão)</span><span><kbd>${L.grab}</kbd> agarrar (segure)</span><span><kbd>${L.headbutt}</kbd> cabeçada</span><span><kbd>${L.pause}</kbd> pausa</span>`,
       );
       d.style.setProperty('--c', hex(SLOT_COLORS[f.index]));
       this.legend.appendChild(d);
@@ -110,6 +110,7 @@ export class Hud {
       if (o === f || !o.alive || o.removed) continue;
       if (o.ko && o.pos('chest').distanceTo(me) < 2.2) return `Ele desmaiou! Segure ${L.grab} para agarrar`;
     }
+    if ([f.punchL, f.punchR].some((a) => a.charging && a.charge > 0.25)) return 'Solte: SOCÃO!';
     if (f.dizzy > 70) return 'Tonto! Mais um soco e você desmaia';
     return '';
   }
@@ -141,6 +142,7 @@ export class Hud {
       t.bar.style.width = `${d}%`;
       t.bar.className = f.ko ? 'ko' : d > 65 ? 'high' : '';
       t.el.classList.toggle('ko', f.ko);
+      t.el.classList.toggle('calm', d < 3 && !f.ko);
       if (t.hint && t.labels) {
         const msg = this.hintFor(f, t.labels);
         if (msg !== t.lastHint) {

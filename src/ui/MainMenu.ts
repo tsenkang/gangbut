@@ -25,7 +25,11 @@ export class MainMenu implements Screen {
     act: MainMenuActions,
   ) {
     this.el = h('div', 'screen main-menu');
-    this.el.innerHTML = `<div class="logo"><span>MOLENGAS</span><small>briga bagunçada de gelatina</small></div>`;
+    // Logo com cada letra um pouco torta (e balançando)
+    const letters = [...'MOLENGAS']
+      .map((c, i) => `<b style="--r:${((i * 37) % 9) - 4}deg;--y:${((i * 53) % 7) - 3}px;--d:${(i * 0.13).toFixed(2)}s">${c}</b>`)
+      .join('');
+    this.el.innerHTML = `<div class="logo"><span>${letters}</span><small>briga bagunçada de gelatina</small></div>`;
     const qualities: (Quality | 'auto')[] = ['auto', 'alta', 'media', 'baixa'];
     let q = 0;
     const qName = { auto: 'Automática', alta: 'Alta', media: 'Média', baixa: 'Baixa' };

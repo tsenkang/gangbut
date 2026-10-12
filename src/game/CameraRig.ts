@@ -28,6 +28,8 @@ export class CameraRig {
   target = new THREE.Vector3();
   dist = 15;
   trauma = 0;
+  /** Zoom de perto (no vencedor da rodada). */
+  closeUp = false;
   private time = 0;
 
   constructor(private camera: THREE.PerspectiveCamera) {}
@@ -58,12 +60,12 @@ export class CameraRig {
       const size = box.getSize(new THREE.Vector3());
       spread = Math.max(size.x, size.z * 1.3, size.y * 1.6);
       want.y = Math.max(want.y, s.center.y - 2);
-      if (s.bounds) want.clamp(s.bounds.min, s.bounds.max);
+      if (s.bounds && !this.closeUp) want.clamp(s.bounds.min, s.bounds.max);
     } else want.copy(s.center);
 
     const fovRad = THREE.MathUtils.degToRad(s.fov);
     const needed = (spread * 0.5 + 2.5) / Math.tan(fovRad / 2) / Math.max(1, this.camera.aspect * 0.75);
-    const wantDist = THREE.MathUtils.clamp(needed, s.minDist, s.maxDist);
+    const wantDist = this.closeUp ? s.minDist * 0.62 : THREE.MathUtils.clamp(needed, s.minDist, s.maxDist);
     const k = 1 - Math.pow(0.04, dt);
     this.target.lerp(want, k);
     this.dist += (wantDist - this.dist) * (1 - Math.pow(0.15, dt));

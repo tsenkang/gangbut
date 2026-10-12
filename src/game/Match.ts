@@ -200,12 +200,13 @@ export class Match {
 
   private showRoundEnd(w: Fighter | null) {
     this.clearOverlay();
-    const title = w ? `${w.name} VENCEU A RODADA!` : 'EMPATE!';
+    const title = w ? `${w.name} venceu!` : 'Empate!';
     if (w) {
       audio.play('win');
       audio.play('cheer');
     }
     this.overlay = h('div', 'overlay roundend', `<h1>${title}</h1><div class="board">${this.scoreboard()}</div><p class="hint">Próxima rodada já já... (aperte A / Espaço)</p>`);
+    if (w) this.overlay.style.setProperty('--c', hex(SLOT_COLORS[w.index]));
     uiRoot().appendChild(this.overlay);
   }
 

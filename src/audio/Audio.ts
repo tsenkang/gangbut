@@ -28,7 +28,9 @@ export type SoundName =
   | 'join'
   | 'splash'
   | 'escape'
-  | 'win';
+  | 'win'
+  | 'grunt'
+  | 'oof';
 
 class AudioSystem {
   ctx: AudioContext | null = null;
@@ -169,6 +171,14 @@ class AudioSystem {
       case 'scream':
         this.scream(p, v);
         break;
+      case 'grunt':
+        // "Hup!" de esforço (soco, pulo, arremesso)
+        this.voice(p * 1.1, v, 0.13, [380, 950], 1.15, 0.85);
+        break;
+      case 'oof':
+        // "Uóf!" de quem apanha
+        this.voice(p * 0.95, v, 0.2, [520, 1000], 1.25, 0.6);
+        break;
       case 'ko':
         this.tone('triangle', 880 * p, 860 * p, 0.6, 0.35 * v);
         this.tone('triangle', 1320 * p, 1300 * p, 0.45, 0.2 * v);
@@ -238,6 +248,30 @@ class AudioSystem {
   }
 
   /** Grito curto e engraçado: serra passando por filtros de "voz". */
+  /** Voz curtinha: um "a/u/o" com dois formantes e o tom subindo/caindo. */
+  private voice(p: number, v: number, dur: number, formants: number[], up: number, down: number) {
+    const c = this.ctx!;
+    const t = c.currentTime;
+    const o = c.createOscillator();
+    o.type = 'sawtooth';
+    const base = 210 * p;
+    o.frequency.setValueAtTime(base, t);
+    o.frequency.exponentialRampToValueAtTime(base * up, t + dur * 0.3);
+    o.frequency.exponentialRampToValueAtTime(base * down, t + dur);
+    const g = c.createGain();
+    this.env(g, t, 0.012, 0.3 * v, dur);
+    for (const f of formants) {
+      const bp = c.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = f * p;
+      bp.Q.value = 5;
+      o.connect(bp).connect(g);
+    }
+    g.connect(this.sfx);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+  }
+
   private scream(p: number, v: number) {
     const c = this.ctx!;
     const t = c.currentTime;

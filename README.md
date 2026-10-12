@@ -53,7 +53,8 @@ Os botões de ombro (LB/RB, L1/R1) também agarram. O direcional também anda.
 - Segurando alguém (ou uma caixa), aperte **soco** para arremessar. Quem está
   desmaiado voa bem mais longe.
 - Pendurado numa borda, aperte **pular** para subir (dá para ir "mão por mão").
-- No ar, **soco** vira **voadora**.
+- **Segure** o soco e solte: o boneco puxa o braço lá atrás e solta um **socão** (bate e empurra bem mais).
+- No ar, **soco** vira **voadora** com as duas pernas: forte, mas você cai de costas depois.
 - Segurando alguém com as duas mãos, **erga os braços** (I / analógico direito) para levantá-lo acima da cabeça; o arremesso de lá de cima (ou correndo) vai muito mais longe.
 - Para pegar alguém caído, segure **agarrar** perto dele: o boneco se abaixa e mira sozinho.
 - Desmaiado? Aperte botões rápido para acordar antes.
@@ -66,7 +67,7 @@ tela. Se o controle de alguém desligar durante a luta, o jogo pausa sozinho.
 
 ## Personagens
 
-O padrão é o **Clássico**: um feijãozinho de gelatina liso, de cor única, com olhinhos de ponto, bracinhos curtos e pernas gordinhas (estilo "party brawler"). Também há Gominha, Pão de Forma, Ovo e Pimentão.
+O padrão é o **Clássico**: um feijãozinho de gelatina baixinho e largo, liso, de cor única, sem pescoço, com olhinhos de ponto, bracinhos gordinhos e perninhas curtas (estilo "party brawler"). Também há Gominha, Pão de Forma, Ovo e Pimentão.
 
 ## Fantasias
 

@@ -239,7 +239,7 @@ export abstract class GameMap {
     sun.shadow.camera.far = 120;
     sun.shadow.mapSize.set(this.ctx.shadowSize, this.ctx.shadowSize);
     sun.shadow.bias = -0.0004;
-    sun.shadow.normalBias = 0.02;
+    sun.shadow.normalBias = 0.04;
     sun.shadow.radius = 4;
     root.add(sun);
     root.add(sun.target);

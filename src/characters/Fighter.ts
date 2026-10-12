@@ -13,7 +13,7 @@ import type RAPIER from '@dimforge/rapier3d-compat';
 // fica tonto e desmaia. Toda a "graça" mole mora aqui.
 // ------------------------------------------------------------
 
-export type HitKind = 'punch' | 'headbutt' | 'kick' | 'throw' | 'hazard' | 'fall' | 'shove';
+export type HitKind = 'punch' | 'bigpunch' | 'headbutt' | 'kick' | 'throw' | 'hazard' | 'fall' | 'shove';
 export type FighterEvent =
   | 'jump'
   | 'land'
@@ -27,6 +27,8 @@ export type FighterEvent =
   | 'escape'
   | 'climb'
   | 'bigthrow'
+  | 'bigpunch'
+  | 'charge'
   | 'scream';
 
 /** O que o lutador precisa saber do mundo à sua volta. */
@@ -44,7 +46,7 @@ export interface FighterEnv {
 // Ajustes de jogo (mexa aqui para mudar a sensação).
 export const TUNING = {
   walkSpeed: 4.3,
-  jumpSpeed: 7.4,
+  jumpSpeed: 6.9,
   turnSpeed: 9,
   koBase: 2.8, // segundos de nocaute no primeiro desmaio
   koStep: 0.9, // cada nocaute dura mais
@@ -65,8 +67,14 @@ interface Attack {
   hit: Set<Fighter>; // quem já levou desta vez
   aim: THREE.Vector3; // direção do golpe
   point: THREE.Vector3; // ponto mirado (no mundo)
+  /** Soco: ainda segurando o botão (carregando o socão)? */
+  charging: boolean;
+  /** Quanto carregou (segundos, até 0,9). */
+  charge: number;
 }
-const newAttack = (): Attack => ({ t: -1, hit: new Set(), aim: new THREE.Vector3(), point: new THREE.Vector3() });
+const newAttack = (): Attack => ({ t: -1, hit: new Set(), aim: new THREE.Vector3(), point: new THREE.Vector3(), charging: false, charge: 0 });
+/** Carga mínima para virar "socão". */
+const BIG_CHARGE = 0.25;
 
 export class Fighter {
   ragdoll: Ragdoll;
@@ -139,6 +147,8 @@ export class Fighter {
   private blinkT = Math.random() * 3;
   private squash = 0;
   private screamT = 0;
+  /** Depois da voadora: cai de costas, molinho, por um instante. */
+  private flopT = 0;
 
   constructor(
     public index: number,
@@ -242,6 +252,7 @@ export class Fighter {
     if (canAct && this.liftedBy && this.liftedBy.lifting === this) targetStrength = 0.15;
     else if (this.liftedBy) this.liftedBy = null;
     if (canAct && this.hurtT > 0) targetStrength = Math.min(targetStrength, 0.6);
+    if (canAct && this.flopT > 0) targetStrength = Math.min(targetStrength, 0.2);
     // Ao acordar a força volta devagar (levantando cambaleando).
     const rate = targetStrength > this.strength ? 1.6 : 12;
     this.strength += (targetStrength - this.strength) * Math.min(1, rate * dt);
@@ -287,10 +298,15 @@ export class Fighter {
         if (!pressed(key)) continue;
         const hand = this.hands[side];
         if (hand.holding() && !hand.holdingStatic()) this.throwHeld(env, side);
-        else if (!this.grounded && this.airTime > 0.08 && this.kick.t < 0) this.startAttack(this.kick, env, 'kick');
+        else if ((this.jumpT > 0.05 || (!this.grounded && this.airTime > 0.08)) && this.kick.t < 0) this.startAttack(this.kick, env, 'kick');
         else {
           const a = side === 'L' ? this.punchL : this.punchR;
-          if (a.t < 0 || a.t > 0.3) this.startAttack(a, env, 'punch');
+          if (a.t < 0 || a.t > 0.3) {
+            // Toque = soco rápido. Segurar = puxa o braço lá atrás e solta um SOCÃO.
+            this.startAttack(a, env, 'punch');
+            a.charging = true;
+            a.charge = 0;
+          }
         }
       }
 
@@ -299,12 +315,12 @@ export class Fighter {
       if ((inp.grabL || inp.grabR) && Math.abs(inp.armY) < 0.5 && !this.hands.L.holding() && !this.hands.R.holding()) {
         const me = this.pos('chest');
         const f = this.fwd();
-        let bd = 2;
+        let bd = 2.6;
         for (const o of env.fighters) {
           if (o === this || o.removed || !o.alive) continue;
           const c = o.pos('chest');
           const d = c.clone().sub(me);
-          if (c.y > me.y - 0.45) continue; // só quem está no chão
+          if (c.y - o.pos('pelvis').y > 0.26) continue; // só quem está deitado no chão
           const flat = Math.hypot(d.x, d.z);
           if (flat > bd || (d.x * f.x + d.z * f.z) / (flat || 1) < 0.3) continue;
           bd = flat;
@@ -435,11 +451,11 @@ export class Fighter {
       victim!.liftedBy = this;
     }
     // Leva o corpo do coitado para cima da minha cabeça
-    const top = this.pos('head').add(new THREE.Vector3(0, 1.05, 0)).addScaledVector(this.fwd(), 0.15);
+    const top = this.pos('head').add(new THREE.Vector3(0, 0.9, 0)).addScaledVector(this.fwd(), 0.15);
     for (const n of ['chest', 'pelvis', 'head'] as PartName[]) {
       const b = victim!.part(n);
       const p = v3(b.translation());
-      const want = top.clone().add(new THREE.Vector3(0, n === 'head' ? 0.35 : n === 'pelvis' ? -0.3 : 0, 0)).sub(p).multiplyScalar(9);
+      const want = top.clone().add(new THREE.Vector3(0, n === 'head' ? 0.45 : n === 'pelvis' ? -0.38 : 0, 0)).sub(p).multiplyScalar(9);
       if (want.length() > 9) want.setLength(9);
       const v = b.linvel();
       const k = Math.min(1, 14 * dt);
@@ -473,6 +489,12 @@ export class Fighter {
   private startAttack(a: Attack, env: FighterEnv, kind: 'punch' | 'headbutt' | 'kick') {
     a.t = 0;
     a.hit.clear();
+    this.aimAttack(a, env, kind, 0.6);
+    if (kind !== 'punch') env.onEvent(this, kind); // o soco faz barulho quando sai
+  }
+
+  /** Mira automática: vira um pouco para o inimigo mais perto na frente. */
+  private aimAttack(a: Attack, env: FighterEnv, kind: 'punch' | 'headbutt' | 'kick', turn: number) {
     // Mira automática: vira um pouco para o inimigo mais perto na frente.
     const me = this.pos('chest');
     const f = this.fwd();
@@ -491,15 +513,14 @@ export class Fighter {
     if (best) {
       const aimAt = best.pos(kind === 'kick' ? 'pelvis' : 'head').lerp(best.pos('chest'), 0.55);
       const d = aimAt.clone().sub(me);
-      this.facing += angleDiff(this.facing, Math.atan2(d.x, d.z)) * 0.6;
+      this.facing += angleDiff(this.facing, Math.atan2(d.x, d.z)) * turn;
       a.aim.copy(d.normalize());
       // Mira um pouco "através" do alvo, para o punho chegar com força.
       a.point.copy(aimAt).addScaledVector(a.aim, 0.35);
     } else {
       a.aim.copy(this.fwd()).add(new THREE.Vector3(0, kind === 'punch' ? 0.1 : 0, 0)).normalize();
-      a.point.copy(me).addScaledVector(this.fwd(), 1.4).add(new THREE.Vector3(0, 0.3, 0));
+      a.point.copy(me).addScaledVector(this.fwd(), 1.4).add(new THREE.Vector3(0, 0.35, 0));
     }
-    env.onEvent(this, kind);
   }
 
   /** Empurra o corpo todo numa direção (usado por golpes e perigos). */
@@ -554,6 +575,7 @@ export class Fighter {
 
   private updateHealth(env: FighterEnv, dt: number) {
     this.hurtT -= dt;
+    this.flopT -= dt;
     this.impactGrace -= dt;
     if (this._pendingKo) {
       this._pendingKo = false;
@@ -606,7 +628,7 @@ export class Fighter {
 
     const pv = pel.linvel();
     this.speed = Math.hypot(pv.x, pv.z);
-    this.walkPhase += dt * (2 + this.speed * 2.6);
+    this.walkPhase += dt * (2 + this.speed * 3.3); // passinhos curtos e rápidos
 
     if (this.pullT >= 0) {
       // Escalando: puxa o corpo para cima e por cima da borda.
@@ -657,7 +679,10 @@ export class Fighter {
       if (d.length() > 0.75) target.copy(d.normalize().multiplyScalar(1.8));
     }
 
-    const ctrl = (this.grounded ? 0.2 : 0.045) * s;
+    // No ar só controla se estiver mexendo o analógico (o embalo continua),
+    // e durante a voadora não freia nada.
+    let ctrl = (this.grounded ? 0.2 : moveMag > 0.1 ? 0.045 : 0) * s;
+    if (this.kick.t >= 0) ctrl = 0;
     for (const b of [pel, chest]) {
       const v = b.linvel();
       b.setLinvel({ x: v.x + (target.x - v.x) * ctrl, y: v.y, z: v.z + (target.z - v.z) * ctrl }, true);
@@ -732,15 +757,19 @@ export class Fighter {
     const hb = this.headbutt.t;
     if (hb >= 0) pitch += hb < 0.08 ? -0.5 : hb < 0.35 ? 1.1 : 0.3;
     const kt = this.kick.t;
-    if (kt >= 0) pitch -= 0.75;
+    if (kt >= 0) pitch -= kt < 0.5 ? 1.35 : 0.8; // voadora: corpo quase deitado no ar
     for (const [a, sign] of [
       [this.punchL, -1],
       [this.punchR, 1],
     ] as const) {
       if (a.t < 0) continue;
       // Prepara girando para trás, depois gira o corpo todo no soco.
-      twist += a.t < 0.07 ? -sign * 0.4 : a.t < 0.3 ? sign * 0.65 : sign * 0.2;
-      if (a.t >= 0.07 && a.t < 0.3) pitch += 0.15;
+      // Carregando o socão: torce bem mais e inclina para trás.
+      const c = Math.min(1, a.charge / 0.9);
+      const big = a.charge >= BIG_CHARGE;
+      twist += a.t < 0.07 ? -sign * (0.4 + c * 0.55) : a.t < 0.3 ? sign * (0.65 + (big ? c * 0.5 : 0)) : sign * 0.2;
+      if (a.t < 0.07) pitch -= c * 0.3;
+      if (a.t >= 0.07 && a.t < 0.3) pitch += big ? 0.35 : 0.15;
     }
     if (this.pullT >= 0) pitch += 0.4;
     if (this.celebrating) {
@@ -817,7 +846,13 @@ export class Fighter {
       let lower: THREE.Vector3;
       let str: number;
 
-      if (punch.t >= 0 && punch.t < 0.07) {
+      if (punch.t >= 0 && punch.t < 0.07 && punch.charge > 0.08) {
+        // Carregando o socão: braço lá atrás e no alto, punho tremendo
+        const shake = Math.sin(t * 40) * 0.08 * Math.min(1, punch.charge * 2);
+        upper = fwd.clone().multiplyScalar(-1).addScaledVector(UP, 0.35 + shake).addScaledVector(sideV, 0.7);
+        lower = UP.clone().addScaledVector(fwd, 0.35).addScaledVector(sideV, shake);
+        str = 0.85;
+      } else if (punch.t >= 0 && punch.t < 0.07) {
         // Puxa o braço para trás (preparando), cotovelo dobrado
         upper = fwd.clone().multiplyScalar(-0.8).addScaledVector(DOWN, 0.5).addScaledVector(sideV, 0.5);
         lower = fwd.clone().multiplyScalar(0.5).addScaledVector(UP, 0.4);
@@ -905,29 +940,50 @@ export class Fighter {
       [this.punchR, 'R'],
     ] as const) {
       if (a.t < 0) continue;
-      const before = a.t;
-      a.t += dt;
       if (dead) {
         a.t = -1;
+        a.charging = false;
         continue;
       }
+      if (a.charging) {
+        const held = side === 'L' ? this.input.punchL : this.input.punchR;
+        if (held && a.t + dt >= 0.065) {
+          // Segurando: o braço fica lá atrás, carregando
+          a.t = 0.065;
+          const was = a.charge;
+          a.charge = Math.min(0.9, a.charge + dt);
+          if (was < BIG_CHARGE && a.charge >= BIG_CHARGE) env.onEvent(this, 'charge');
+          if (a.charge >= BIG_CHARGE) this.aimAttack(a, env, 'punch', 0.08);
+          continue;
+        }
+        if (!held) a.charging = false;
+      }
+      const before = a.t;
+      a.t += dt;
       const fore = this.part(('fore' + side) as PartName);
+      const big = a.charge >= BIG_CHARGE;
       if (before < 0.07 && a.t >= 0.07) {
-        // Lança o punho na direção do alvo!
+        a.charging = false;
+        // Lança o punho na direção do alvo! (o socão vai com o corpo todo)
         const dir = a.point.clone().sub(this.hands[side].position()).normalize();
+        const k = 11 + (big ? a.charge * 10 : 0);
         const v = fore.linvel();
-        fore.setLinvel({ x: v.x + dir.x * 11, y: v.y + dir.y * 11, z: v.z + dir.z * 11 }, true);
+        fore.setLinvel({ x: v.x + dir.x * k, y: v.y + dir.y * k, z: v.z + dir.z * k }, true);
         const arm = this.part(('arm' + side) as PartName);
         const v2 = arm.linvel();
-        arm.setLinvel({ x: v2.x + dir.x * 5, y: v2.y + dir.y * 5, z: v2.z + dir.z * 5 }, true);
+        arm.setLinvel({ x: v2.x + dir.x * k * 0.45, y: v2.y + dir.y * k * 0.45, z: v2.z + dir.z * k * 0.45 }, true);
         // Dá um passinho para frente junto com o soco
         const c = this.part('chest');
         const cv = c.linvel();
-        c.setLinvel({ x: cv.x + a.aim.x * 2.6, y: cv.y, z: cv.z + a.aim.z * 2.6 }, true);
+        const step = 2.6 + (big ? a.charge * 4 : 0);
+        c.setLinvel({ x: cv.x + a.aim.x * step, y: cv.y, z: cv.z + a.aim.z * step }, true);
+        env.onEvent(this, big ? 'bigpunch' : 'punch');
       }
       if (a.t >= 0.08 && a.t < 0.28) {
-        this.testHit(env, this.hands[side].position(), DIM.handR + 0.1, a, TUNING.punchPower, 'punch', fore);
+        const power = TUNING.punchPower * (big ? 1 + a.charge * 1.3 : 1);
+        this.testHit(env, this.hands[side].position(), DIM.handR + (big ? 0.16 : 0.1), a, power, big ? 'bigpunch' : 'punch', fore);
       }
+      if (a.t > 0.42) a.charge = 0;
       if (a.t > 0.42) a.t = -1;
     }
 
@@ -957,10 +1013,11 @@ export class Fighter {
       if (dead) k.t = -1;
       else {
         if (before === 0) {
-          for (const n of ['pelvis', 'legL', 'legR'] as PartName[]) {
+          for (const n of ['pelvis', 'legL', 'legR', 'chest'] as PartName[]) {
             const b = this.part(n);
             const v = b.linvel();
-            b.setLinvel({ x: v.x + k.aim.x * 5, y: v.y + 1.5, z: v.z + k.aim.z * 5 }, true);
+            const f = n === 'chest' ? 2.5 : 6;
+            b.setLinvel({ x: v.x + k.aim.x * f, y: v.y + 1.8, z: v.z + k.aim.z * f }, true);
           }
         }
         if (k.t >= 0.06 && k.t < 0.5) {
@@ -970,7 +1027,10 @@ export class Fighter {
             this.testHit(env, foot, DIM.legR + 0.12, k, TUNING.kickPower, 'kick', leg);
           }
         }
-        if (k.t > 0.65 || (this.grounded && k.t > 0.2)) k.t = -1;
+        if (k.t > 0.65 || (this.grounded && k.t > 0.2)) {
+          k.t = -1;
+          this.flopT = 0.55; // e cai de costas (o preço da voadora)
+        }
       }
     }
   }
@@ -1018,7 +1078,7 @@ export class Fighter {
     if (ko) eyeScale = 1;
     for (const e of f.eyes) e.scale.y = eyeScale;
     const shout = ko || this.hurtT > 0 || this.screamT > 0.8 || this.headbutt.t >= 0 || this.celebrating || this.grabbedBy > 0;
-    f.mouth.visible = !shout;
+    f.mouth.visible = !shout && f.smile;
     f.mouthO.visible = shout;
 
     // Olhos seguem quem a cabeça está olhando

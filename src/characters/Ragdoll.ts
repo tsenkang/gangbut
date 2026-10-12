@@ -17,28 +17,36 @@ import { RAPIER, Physics, fighterBit, groups, G_ALL } from '../physics/Physics';
 export type PartName = 'head' | 'chest' | 'pelvis' | 'armL' | 'armR' | 'foreL' | 'foreR' | 'legL' | 'legR';
 export const PART_NAMES: PartName[] = ['pelvis', 'chest', 'head', 'armL', 'armR', 'foreL', 'foreR', 'legL', 'legR'];
 
-/** Medidas do corpo (em metros). O boneco tem ~2,2 m com a cabeça. */
+/**
+ * Medidas do corpo (em metros). Formato de "feijão": pernas curtinhas,
+ * cabeça grudada no tronco (sem pescoço) e bracinhos que saem do meio
+ * do corpo. O boneco tem ~1,85 m com a cabeça.
+ */
 export const DIM = {
-  hover: 0.78, // altura do quadril em relação ao chão quando em pé
-  pelvisR: 0.27,
-  pelvisY: 0.78,
-  chestR: 0.32,
-  chestHH: 0.16,
-  chestY: 1.2,
-  headR: 0.3,
-  headY: 1.9,
-  armR: 0.1,
-  armHH: 0.13,
-  armX: 0.47,
-  armY: 1.35,
-  foreHH: 0.12,
-  foreY: 1.35 - 0.13 - 0.04 - 0.12 - 0.04, // logo abaixo do cotovelo
-  handR: 0.13,
-  handOffset: 0.21,
-  legR: 0.13,
-  legHH: 0.17,
-  legX: 0.15,
-  legY: 0.36,
+  hover: 0.58, // altura do quadril em relação ao chão quando em pé
+  pelvisR: 0.3,
+  pelvisY: 0.58,
+  chestR: 0.36,
+  chestHH: 0.12,
+  chestY: 0.98,
+  headR: 0.34,
+  headY: 1.5,
+  armR: 0.11,
+  armHH: 0.12,
+  armX: 0.5,
+  armY: 1.06,
+  foreHH: 0.11,
+  foreY: 1.06 - 0.12 - 0.04 - 0.11 - 0.04, // logo abaixo do cotovelo
+  handR: 0.14,
+  handOffset: 0.2,
+  legR: 0.14,
+  legHH: 0.08,
+  legX: 0.17,
+  legY: 0.24,
+  /** Juntas: quadril–tronco, tronco–cabeça e quadril–perna (altura). */
+  waistJ: 0.76,
+  neckJ: 1.26,
+  hipJ: 0.24 + 0.08 + 0.12,
 };
 
 const MASS: Record<PartName, number> = {
@@ -128,12 +136,12 @@ export class Ragdoll {
       j.setContactsEnabled(false);
       this.joints.push(j);
     };
-    joint('pelvis', 'chest', new THREE.Vector3(0, 0.94, 0));
-    joint('chest', 'head', new THREE.Vector3(0, 1.62, 0));
+    joint('pelvis', 'chest', new THREE.Vector3(0, D.waistJ, 0));
+    joint('chest', 'head', new THREE.Vector3(0, D.neckJ, 0));
     for (const [s, sx] of [['L', 1], ['R', -1]] as const) {
       joint('chest', ('arm' + s) as PartName, new THREE.Vector3(sx * (D.armX - 0.03), D.armY + D.armHH + 0.04, 0));
       joint(('arm' + s) as PartName, ('fore' + s) as PartName, new THREE.Vector3(sx * D.armX, D.armY - D.armHH - 0.04, 0));
-      joint('pelvis', ('leg' + s) as PartName, new THREE.Vector3(sx * D.legX, D.legY + 0.28, 0));
+      joint('pelvis', ('leg' + s) as PartName, new THREE.Vector3(sx * D.legX, D.hipJ, 0));
     }
   }
 

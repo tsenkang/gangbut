@@ -154,7 +154,7 @@ export class Arena implements ArenaApi {
       return;
     }
     power *= this.damageMult;
-    const knock = kind === 'punch' ? 2.1 : kind === 'headbutt' ? 3.8 : kind === 'kick' ? 4.6 : 3;
+    const knock = kind === 'punch' ? 2.1 : kind === 'bigpunch' ? 4.6 : kind === 'headbutt' ? 3.8 : kind === 'kick' ? 5 : 3;
     const wasKo = victim.ko;
     victim.receiveHit(power, dir, partAt(victim, point), knock);
     if (attacker) {
@@ -166,11 +166,12 @@ export class Arena implements ArenaApi {
     this.effects.drops(point, victim.appearance.color, dir, strong ? 1.5 : 0.8);
     this.effects.sparks(point, 0xfff6c2, strong ? 14 : 8, strong ? 8 : 5);
     this.sound(strong ? 'heavy' : 'punch', 1, kind === 'headbutt' ? 0.8 : 1);
+    if (strong || Math.random() < 0.4) this.sound('oof', strong ? 0.8 : 0.5, CHARACTERS.find((c) => c.id === victim.appearance.character)?.voice ?? 1);
     this.shake(strong ? 0.4 : 0.16);
     if (strong) this.hitstop(0.05);
     victim.source.rumble?.(strong ? 1 : 0.5, strong ? 0.9 : 0.6, strong ? 280 : 120);
     attacker?.source.rumble?.(0.2, 0.4, 70);
-    const label = kind === 'headbutt' ? 'CABEÇADA!' : kind === 'kick' ? 'VOADORA!' : pick(POW);
+    const label = kind === 'headbutt' ? 'CABEÇADA!' : kind === 'kick' ? 'VOADORA!' : kind === 'bigpunch' ? pick(['SOCÃO!', 'TOMA!', 'BUM!']) : pick(POW);
     // Um texto por vez (senão a tela vira sopa de letrinhas)
     if ((kind !== 'punch' || Math.random() < 0.45) && this.time - this.lastPopAt > 0.35 && (this.lastPopAt = this.time) >= 0) this.effects.text(point.clone().add(new THREE.Vector3(0, 0.5, 0)), label, strong ? 'big' : '');
   }
@@ -182,7 +183,7 @@ export class Arena implements ArenaApi {
         this.sound('jump', 0.7, voice);
         break;
       case 'land':
-        this.effects.dust(f.pos('pelvis').setY(f.pos('pelvis').y - 0.7), amount);
+        this.effects.dust(f.pos('pelvis').setY(f.pos('pelvis').y - 0.55), amount);
         this.sound('land', 0.4 * amount);
         break;
       case 'ko': {
@@ -202,6 +203,7 @@ export class Arena implements ArenaApi {
         break;
       case 'throw':
         this.sound('throw', 0.8);
+        this.sound('grunt', 0.8, voice);
         break;
       case 'bigthrow':
         this.sound('throw', 1, 0.7);
@@ -209,9 +211,17 @@ export class Arena implements ArenaApi {
         this.shake(0.3);
         this.effects.text(f.pos('head').add(new THREE.Vector3(0, 1.4, 0)), pick(['LÁ VAI!', 'ARREMESSO!', 'VOA!']), 'big');
         break;
+      case 'charge':
+        this.sound('whoosh', 0.25, 0.45);
+        break;
+      case 'bigpunch':
+        this.sound('whoosh', 0.8, 0.75);
+        this.sound('grunt', 0.9, voice * 0.9);
+        break;
       case 'punch':
       case 'kick':
         this.sound('whoosh', 0.5, ev === 'kick' ? 0.7 : 1);
+        if (ev === 'kick' || Math.random() < 0.35) this.sound('grunt', 0.55, voice);
         break;
       case 'headbutt':
         this.sound('whoosh', 0.5, 0.6);
@@ -326,7 +336,10 @@ export class Arena implements ArenaApi {
       if (f.alive) pts.push(f.pos('chest'));
       if (f.alive && (f.ko || f.dizzy > 70)) this.effects.halo(f.skin.parts.head.position, this.time, f.ko ? 3 : 2);
     }
-    this.rig.update(dt, pts);
+    // Fim de rodada: a câmera chega pertinho de quem está comemorando
+    const champ = this.map.id === 'saguao' ? undefined : this.fighters.find((f) => f.celebrating && !f.removed);
+    this.rig.closeUp = !!champ;
+    this.rig.update(dt, champ ? [champ.pos('chest')] : pts);
   }
 
   dispose() {

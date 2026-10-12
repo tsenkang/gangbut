@@ -184,3 +184,90 @@ kbd { display: inline-block; background: var(--ink); color: #fff; border-radius:
 .tag .hint { font-family: var(--body); font-weight: 900; font-size: 13px; -webkit-text-stroke: 0; color: var(--ink); background: var(--yellow); border: 2px solid var(--ink); border-radius: 8px; padding: 1px 7px; white-space: nowrap; animation: pulse 0.9s infinite; }
 .tag .hint:empty { display: none; }
 .tag.me span::after { content: ' ▼'; }
+
+/* ============================================================
+   Visual "party brawler": texto grandão, branco e em maiúsculas,
+   sem caixas; o item escolhido ganha uma faixa laranja inclinada.
+   (Fica no fim do arquivo para valer por cima do que vem antes.)
+   ============================================================ */
+:root { --accent: #ff8a00; --shadow: #0b0614; --panel: #120c1ee8; --logo: 'Titan One', var(--head); }
+.title, .overlay h1, .overlay h2 { text-transform: uppercase; }
+.title { color: #fff; -webkit-text-stroke: 0; text-shadow: 0 4px 0 var(--shadow), 0 0 18px #000a; letter-spacing: 2px; }
+
+.menu-list { gap: 2px; }
+.btn { background: transparent; color: #fff; border: 0; box-shadow: none; border-radius: 0; padding: 5px 30px 5px 18px; font-size: clamp(20px, 2.6vw, 30px); text-transform: uppercase; letter-spacing: .5px; justify-content: flex-start; text-align: left; text-shadow: 0 3px 0 var(--shadow), 0 0 14px #000c; clip-path: polygon(0 0, 100% 0, calc(100% - 16px) 100%, 0 100%); transition: transform .1s, background .1s; }
+.btn small { display: none; }
+.btn.focus { background: var(--accent); color: var(--shadow); text-shadow: none; transform: translateX(12px); }
+.btn.focus small { display: block; width: 100%; color: var(--shadow); opacity: .85; text-transform: none; font-size: 13px; margin-top: -4px; text-align: left; }
+.btn .arrow { padding: 0 6px; }
+.btn.disabled { opacity: .35; }
+.overlay .menu-list .btn, .controls .menu-list .btn, .howto .menu-list .btn { justify-content: center; text-align: center; clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+.overlay .menu-list .btn.focus, .controls .menu-list .btn.focus, .howto .menu-list .btn.focus { transform: scale(1.06); }
+
+/* Logo com letras tortinhas */
+.main-menu { background: linear-gradient(90deg, #0b0614d0, #0b061466 40%, transparent 65%); }
+.main-menu .logo { animation: none; text-align: left; margin-top: 2vh; }
+.main-menu .logo span { font-family: var(--logo); color: #fff; -webkit-text-stroke: 0; text-shadow: none; font-size: clamp(46px, 7.5vw, 104px); letter-spacing: -1px; }
+.logo span b { display: inline-block; font-weight: 400; color: #fff; text-shadow: 0 5px 0 var(--shadow), 0 9px 0 #0006, 0 0 24px #000a; transform: translateY(var(--y)) rotate(var(--r)); animation: letter 2.4s ease-in-out infinite; animation-delay: var(--d); }
+.logo span b:nth-child(3n) { color: #ffe9c9; }
+@keyframes letter { 50% { transform: translateY(calc(var(--y) - 4px)) rotate(calc(var(--r) * -1)); } }
+.main-menu .logo small { background: var(--shadow); color: #fff; border: 0; border-radius: 0; padding: 4px 14px; transform: rotate(-2deg); font-size: clamp(14px, 1.8vw, 20px); text-transform: uppercase; letter-spacing: 1px; }
+.main-menu .menu-list { margin-top: 2.5vh; width: min(420px, 100%); }
+.main-menu .pads-status { bottom: 40px; }
+
+/* Cartões da escolha de personagem: painéis escuros */
+.card { background: var(--panel); color: #fff; border: 0; border-top: 8px solid var(--c); border-radius: 6px; box-shadow: 0 10px 30px #0009; }
+.card.empty { background: #0b061499; color: #fff; border: 3px dashed #ffffff55; border-top: 8px solid var(--c); }
+.card.ready { background: #0e3a26ee; }
+.card .who { text-transform: uppercase; color: var(--c); text-shadow: 0 2px 0 var(--shadow); }
+.card .who small { color: #fff; text-transform: none; }
+.card .opt { background: #ffffff10; border-radius: 3px; }
+.card .opt.focus { background: var(--accent); color: var(--shadow); outline: 0; }
+.card .sw { border-color: #fff; }
+.card .readybtn { text-transform: uppercase; }
+.card.ready .readybtn { background: #3ddc84; color: var(--shadow); -webkit-text-stroke: 0; }
+.card .join { text-transform: uppercase; }
+
+/* HUD da luta: discreto (a briga é o show) */
+.hud-top .round { display: none; }
+.hud-top .chips { gap: 6px; }
+.chip { background: #0b0614b3; color: #fff; border: 0; border-bottom: 4px solid var(--c); border-radius: 3px; font-size: 14px; padding: 2px 8px; }
+.dots i { width: 9px; height: 9px; border: 2px solid #fff9; background: transparent; }
+.dots i.on { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.clock { font-size: 20px; -webkit-text-stroke: 0; text-shadow: 0 2px 0 var(--shadow); }
+.tag { font-size: 13px; -webkit-text-stroke: 0; }
+.tag span { background: transparent; border: 0; padding: 0; color: var(--c); text-shadow: 0 2px 0 var(--shadow), 0 0 6px #000; text-transform: uppercase; }
+.tag.me span::after { content: ''; display: block; width: 0; height: 0; margin: 1px auto 0; border: 6px solid transparent; border-top: 8px solid var(--c); border-bottom: 0; }
+.tag .dizzy { width: 46px; height: 6px; border: 0; border-radius: 3px; transition: opacity .3s; }
+.tag.calm .dizzy { opacity: 0; }
+.feed-item { background: #0b0614d9; color: #fff; border: 0; border-left: 6px solid var(--accent); border-radius: 0; padding: 5px 14px; font-weight: 900; }
+.feed-item.out { border-left-color: #ff5c5c; }
+.feed-item.tip { background: #0b0614b3; border-left-color: #3a86ff; }
+.legend { background: #0b0614b3; border: 0; border-left: 4px solid var(--c); border-radius: 0; opacity: .8; }
+
+/* Fim de rodada: faixa grande na cor do vencedor, sem escurecer a tela */
+.overlay.roundend { background: linear-gradient(transparent 55%, #0b061488); justify-content: flex-end; padding-bottom: 7vh; }
+.overlay.roundend h1 { background: var(--c, var(--accent)); color: #fff; -webkit-text-stroke: 0; text-shadow: 0 5px 0 var(--shadow); padding: 8px 70px; transform: skew(-12deg) rotate(-2deg); box-shadow: 0 10px 0 var(--shadow); animation: banner .45s cubic-bezier(.3,1.6,.5,1); font-size: clamp(32px, 5.5vw, 72px); }
+.overlay.roundend .board { flex-direction: row; flex-wrap: wrap; justify-content: center; min-width: 0; margin-top: 10px; }
+.overlay.roundend .board .row { font-size: 16px; padding: 3px 10px; gap: 8px; }
+@keyframes banner { from { transform: skew(-12deg) rotate(-2deg) translateX(-120vw); } }
+.overlay .board .row { background: var(--panel); color: #fff; border: 0; border-left: 10px solid var(--c); border-radius: 3px; }
+.overlay.matchend h1 { -webkit-text-stroke: 0; text-shadow: 0 6px 0 var(--shadow), 0 0 30px #000; font-size: clamp(44px, 8vw, 110px); }
+.overlay.matchend h2 { background: var(--accent); color: var(--shadow); padding: 2px 24px; transform: skew(-10deg); }
+.overlay.pause { background: #0b0614cc; }
+.overlay.pause h1 { color: #fff; -webkit-text-stroke: 0; text-shadow: 0 5px 0 var(--accent); }
+
+/* Como jogar / controles: painéis escuros também */
+.howto .move { background: var(--panel); color: #fff; border: 0; border-top: 6px solid var(--accent); border-radius: 6px; box-shadow: 0 8px 20px #0008; }
+.howto .move.hot { background: #2a1830ee; border-top-color: var(--pink); }
+.howto .move h3 { text-transform: uppercase; }
+.howto .combo { border: 0; border-radius: 0; transform: skew(-6deg); background: var(--accent); color: var(--shadow); }
+kbd { background: #ffffff22; border: 1px solid #fff5; }
+.bindings { background: var(--panel); color: #fff; border: 0; border-radius: 6px; }
+.bindings th { border-bottom-color: #fff4; }
+.bindings tr:nth-child(even) td { background: #ffffff0a; }
+.map-info { background: var(--panel); border-radius: 6px; border-left: 6px solid var(--accent); }
+.toast { background: var(--panel); color: #fff; border: 0; border-radius: 0; box-shadow: 0 6px 16px #0008; }
+.toast.warn { background: #3a0f18ee; }
+.btn.choice { flex-wrap: nowrap; white-space: nowrap; }
+.btn.choice.focus { flex-wrap: wrap; }
