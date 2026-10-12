@@ -203,6 +203,12 @@ export class Arena implements ArenaApi {
       case 'throw':
         this.sound('throw', 0.8);
         break;
+      case 'bigthrow':
+        this.sound('throw', 1, 0.7);
+        this.sound('cheer', 0.5);
+        this.shake(0.3);
+        this.effects.text(f.pos('head').add(new THREE.Vector3(0, 1.4, 0)), pick(['LÁ VAI!', 'ARREMESSO!', 'VOA!']), 'big');
+        break;
       case 'punch':
       case 'kick':
         this.sound('whoosh', 0.5, ev === 'kick' ? 0.7 : 1);

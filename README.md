@@ -54,6 +54,9 @@ Os botões de ombro (LB/RB, L1/R1) também agarram. O direcional também anda.
   desmaiado voa bem mais longe.
 - Pendurado numa borda, aperte **pular** para subir (dá para ir "mão por mão").
 - No ar, **soco** vira **voadora**.
+- Segurando alguém com as duas mãos, **erga os braços** (I / analógico direito) para levantá-lo acima da cabeça; o arremesso de lá de cima (ou correndo) vai muito mais longe.
+- Para pegar alguém caído, segure **agarrar** perto dele: o boneco se abaixa e mira sozinho.
+- Desmaiado? Aperte botões rápido para acordar antes.
 - Alguém te segurando? Aperte botões sem parar para **escapar**.
 - Quanto mais você apanha, mais a barra de **tontura** enche; cheia = nocaute.
   Cada nocaute dura mais que o anterior.

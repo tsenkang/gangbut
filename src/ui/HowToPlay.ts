@@ -32,14 +32,14 @@ export class HowToPlay implements Screen {
         <div class="move"><h3>Andar</h3><p>Seu boneco é mole e desajeitado: é assim mesmo!</p>${keys(A.move, B.move, padLabels.move)}</div>
         <div class="move"><h3>Socar</h3><p>Cada soco enche a <b>barra amarela</b> do outro. Cheia = <b>nocaute</b> (fica mole no chão).</p>${keys(A.punch, B.punch, padLabels.punch)}</div>
         <div class="move hot"><h3>Agarrar <small>(segure)</small></h3><p>Estica os braços e segura o que tocar: gente, caixas, bordas. Soltou o botão, soltou a mão.</p>${keys(A.grab, B.grab, padLabels.grab)}</div>
-        <div class="move hot"><h3>Arremessar</h3><p><b>Segurando</b> alguém, aperte <b>soco</b>. Quem está desmaiado voa longe!</p>${keys(A.punch, B.punch, padLabels.punch)}</div>
+        <div class="move hot"><h3>Erguer e arremessar</h3><p>Segurando com as <b>duas mãos</b>, levante os braços para <b>erguer acima da cabeça</b>. Depois aperte <b>soco</b>: de lá de cima (ou correndo) voa muito mais longe!</p>${keys(A.arms + ' + ' + A.punchL, B.arms + ' + ' + B.punchL, padLabels.arms + ' + ' + padLabels.punchL)}</div>
         <div class="move"><h3>Pular / subir</h3><p>Pendurado numa borda (agarrando), aperte <b>pular</b> para subir.</p>${keys(A.jump, B.jump, padLabels.jump)}</div>
         <div class="move"><h3>Cabeçada / voadora</h3><p>Cabeçada é forte, mas te deixa um pouco tonto. No ar, <b>soco</b> vira voadora.</p>${keys(A.headbutt, B.headbutt, padLabels.headbutt)}</div>
       </div>
       <div class="combo"><b>Combo básico:</b>
         <span>1. Soque até ele desmaiar</span><span>→</span><span>2. Segure o agarrar</span><span>→</span><span>3. Leve até a borda</span><span>→</span><span>4. Soco para jogar!</span>
       </div>
-      <p class="small">Alguém te segurando? Aperte botões sem parar para escapar. · Pausa: ${A.pause} (J1), ${B.pause} (J2), ${padLabels.pause} (${padName}).</p>`;
+      <p class="small">Para pegar alguém caído é só segurar o agarrar perto dele: o boneco se abaixa sozinho. Desmaiado ou seguro por alguém? Aperte botões sem parar para acordar/escapar. · Pausa: ${A.pause} (J1), ${B.pause} (J2), ${padLabels.pause} (${padName}).</p>`;
     this.list = new MenuList([{ label: doneLabel, action: () => cb.done() }]);
     this.el.appendChild(this.list.el);
     uiRoot().appendChild(this.el);

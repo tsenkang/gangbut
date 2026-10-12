@@ -52,7 +52,8 @@ export class Hand {
     return !!this.target && this.target.isValid() && !this.target.isDynamic();
   }
 
-  tryGrab(): boolean {
+  /** onlyBodies: ignora chão/paredes (para pegar alguém caído sem agarrar o chão). */
+  tryGrab(onlyBodies = false): boolean {
     if (this.joint || this.cooldown > 0) return false;
     const p = this.position();
     let best: RAPIER.Collider | null = null;
@@ -60,6 +61,7 @@ export class Hand {
     this.physics.overlapBall(p, DIM.handR + 0.13, this.ignoreBit, (c) => {
       const info = this.physics.getInfo(c);
       if (!info || !info.grabbable || c.isSensor()) return;
+      if (onlyBodies && info.kind !== 'fighter' && info.kind !== 'prop') return;
       const s = PRIORITY[info.kind] ?? 0;
       if (s > bestScore) {
         bestScore = s;

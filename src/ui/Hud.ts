@@ -93,12 +93,16 @@ export class Hud {
 
   /** Qual dica mostrar em cima do boneco do jogador agora? */
   private hintFor(f: Fighter, L: ControlLabels): string {
-    if (f.ko) return 'Desmaiado! Já já você levanta...';
+    if (f.ko) return `Desmaiado! Aperte ${L.jump} rápido para acordar!`;
+    if (f.liftedBy) return `Te ergueram! Aperte ${L.jump} sem parar!`;
+    if (f.lifting) return `${L.punch.split(' / ')[0]}: ARREMESSAR lá de cima!`;
     if (f.grabbedBy > 0) return `Te pegaram! Aperte ${L.jump} sem parar!`;
     const holdingFoe = [f.hands.L, f.hands.R].some((hd) => hd.holding() && hd.targetInfo?.kind === 'fighter');
     const holdingThing = [f.hands.L, f.hands.R].some((hd) => hd.holding() && hd.targetInfo?.kind === 'prop');
     const hanging = (f.hands.L.holdingStatic() || f.hands.R.holdingStatic()) && !f.grounded;
     if (hanging) return `${L.jump}: subir!`;
+    const bothOnFoe = f.hands.L.targetInfo?.kind === 'fighter' && f.hands.L.targetInfo.owner === f.hands.R.targetInfo?.owner;
+    if (bothOnFoe) return `${L.arms}: erguer acima da cabeça · ${L.punch.split(' / ')[0]}: arremessar`;
     if (holdingFoe) return `Leve até a borda e aperte ${L.punch.split(' / ')[0]}: arremessar!`;
     if (holdingThing) return `${L.punch.split(' / ')[0]}: arremessar a peça`;
     const me = f.pos('chest');

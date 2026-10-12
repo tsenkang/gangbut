@@ -26,6 +26,7 @@ export type FighterEvent =
   | 'kick'
   | 'escape'
   | 'climb'
+  | 'bigthrow'
   | 'scream';
 
 /** O que o lutador precisa saber do mundo à sua volta. */
@@ -112,6 +113,15 @@ export class Fighter {
 
   /** Comemorando (vencedor da rodada). */
   celebrating = false;
+  /** Ponto para onde as mãos miram ao agarrar alguém caído (ou null). */
+  private grabAim: THREE.Vector3 | null = null;
+  /** Estou erguendo alguém acima da cabeça? */
+  lifting: Fighter | null = null;
+  /** Estou sendo erguido por alguém? */
+  liftedBy: Fighter | null = null;
+  /** Quanto do nocaute já foi "acordado" apertando botões. */
+  private koMashed = 0;
+  private koFull = 0;
   /** Agachadinha antes do pulo (antecipação). */
   private crouchT = -1;
   /** Cambaleando depois de acordar. */
@@ -212,11 +222,25 @@ export class Fighter {
     this.hands.R.update(dt);
     this.updateHealth(env, dt);
 
+    // Desmaiado: apertar botões rápido ajuda a acordar (até metade do tempo)
+    if (this.alive && this.ko && !this.frozen) {
+      const raw = this.source.read();
+      const any = (raw.jump && !this._mashPrev.jump) || (raw.punchL && !this._mashPrev.punchL) || (raw.punchR && !this._mashPrev.punchR);
+      this._mashPrev = raw;
+      if (any && this.koMashed < this.koFull * 0.5) {
+        this.koTimer -= 0.14;
+        this.koMashed += 0.14;
+        this.squash = Math.max(this.squash, 0.12);
+      }
+    }
+
     const canAct = this.alive && !this.ko;
 
     // ----- força dos músculos
     let targetStrength = canAct ? 1 : 0.02;
     if (canAct && this.grabbedBy >= 2) targetStrength = 0.55;
+    if (canAct && this.liftedBy && this.liftedBy.lifting === this) targetStrength = 0.15;
+    else if (this.liftedBy) this.liftedBy = null;
     if (canAct && this.hurtT > 0) targetStrength = Math.min(targetStrength, 0.6);
     // Ao acordar a força volta devagar (levantando cambaleando).
     const rate = targetStrength > this.strength ? 1.6 : 12;
@@ -270,6 +294,25 @@ export class Fighter {
         }
       }
 
+      // Mira automática ao agarrar: se tem alguém caído na frente, abaixa e pega
+      this.grabAim = null;
+      if ((inp.grabL || inp.grabR) && Math.abs(inp.armY) < 0.5 && !this.hands.L.holding() && !this.hands.R.holding()) {
+        const me = this.pos('chest');
+        const f = this.fwd();
+        let bd = 2;
+        for (const o of env.fighters) {
+          if (o === this || o.removed || !o.alive) continue;
+          const c = o.pos('chest');
+          const d = c.clone().sub(me);
+          if (c.y > me.y - 0.45) continue; // só quem está no chão
+          const flat = Math.hypot(d.x, d.z);
+          if (flat > bd || (d.x * f.x + d.z * f.z) / (flat || 1) < 0.3) continue;
+          bd = flat;
+          this.grabAim = c.add(new THREE.Vector3(0, 0.12, 0));
+        }
+        if (this.grabAim) this.faceNearest(env, 2, 0.2);
+      }
+
       // Agarrar enquanto segura o gatilho
       for (const side of ['L', 'R'] as const) {
         const hand = this.hands[side];
@@ -277,10 +320,12 @@ export class Fighter {
         if (want && !hand.holding()) {
           const wasWanting = side === 'L' ? this.prev.grabL : this.prev.grabR;
           if (!wasWanting) this.faceNearest(env, 2.2, 0.5);
-          if (hand.tryGrab()) env.onEvent(this, 'grab');
+          if (hand.tryGrab(!!this.grabAim)) env.onEvent(this, 'grab');
         } else if (!want && hand.holding()) hand.release();
       }
+      this.updateLift(dt);
     } else {
+      if (this.lifting) this.stopLift();
       // Desmaiado: solta tudo.
       if (this.hands.L.holding()) this.hands.L.release();
       if (this.hands.R.holding()) this.hands.R.release();
@@ -347,19 +392,64 @@ export class Fighter {
     if (other.target === target) other.release(0.25);
     hand.release(0.25);
     if (!target || !target.isValid()) return;
-    const dir = this.fwd().multiplyScalar(1).add(new THREE.Vector3(0, 0.55, 0)).normalize();
+    const overhead = !!this.lifting;
+    if (this.lifting) this.stopLift();
+    const dir = this.fwd().multiplyScalar(1).add(new THREE.Vector3(0, overhead ? 0.7 : 0.55, 0)).normalize();
+    // Embalo: arremessar correndo joga mais longe
+    const run = Math.min(1, this.speed / TUNING.walkSpeed) * 3;
     if (info?.kind === 'fighter') {
       const f = info.owner as Fighter;
-      // Desmaiado voa longe; acordado resiste e só leva um empurrão.
-      f.knock(dir, f.ko ? 8.5 : f.dizzy > 60 ? 6 : 4.2);
+      // Desmaiado voa longe; acordado resiste e só leva um empurrão. De cima da cabeça: voa muito!
+      const base = overhead ? 11.5 : f.ko ? 8.5 : f.dizzy > 60 ? 6 : 4.2;
+      f.knock(dir, base + run);
+      if (overhead) env.onEvent(this, 'bigthrow');
       f.lastAttacker = this;
       f.lastAttackerAt = env.time;
       f.addDizzy(8);
     } else {
       const v = target.linvel();
-      target.setLinvel({ x: v.x + dir.x * 10, y: v.y + dir.y * 10, z: v.z + dir.z * 10 }, true);
+      const k = 10 + run;
+      target.setLinvel({ x: v.x + dir.x * k, y: v.y + dir.y * k, z: v.z + dir.z * k }, true);
     }
     env.onEvent(this, 'throw');
+  }
+
+  /**
+   * Erguer acima da cabeça: segurando um lutador com as DUAS mãos e
+   * levantando os braços, ele sobe e fica lá em cima, se debatendo.
+   */
+  private updateLift(dt: number) {
+    const hL = this.hands.L;
+    const hR = this.hands.R;
+    const victim =
+      hL.targetInfo?.kind === 'fighter' && hR.targetInfo?.kind === 'fighter' && hL.targetInfo.owner === hR.targetInfo.owner
+        ? (hL.targetInfo.owner as Fighter)
+        : null;
+    const wantLift = !!victim && this.input.armY > 0.45 && this.strength > 0.5 && !victim.removed && victim.alive;
+    if (!wantLift) {
+      if (this.lifting) this.stopLift();
+      return;
+    }
+    if (this.lifting !== victim) {
+      this.lifting = victim;
+      victim!.liftedBy = this;
+    }
+    // Leva o corpo do coitado para cima da minha cabeça
+    const top = this.pos('head').add(new THREE.Vector3(0, 1.05, 0)).addScaledVector(this.fwd(), 0.15);
+    for (const n of ['chest', 'pelvis', 'head'] as PartName[]) {
+      const b = victim!.part(n);
+      const p = v3(b.translation());
+      const want = top.clone().add(new THREE.Vector3(0, n === 'head' ? 0.35 : n === 'pelvis' ? -0.3 : 0, 0)).sub(p).multiplyScalar(9);
+      if (want.length() > 9) want.setLength(9);
+      const v = b.linvel();
+      const k = Math.min(1, 14 * dt);
+      b.setLinvel({ x: v.x + (want.x - v.x) * k, y: v.y + (want.y - v.y) * k, z: v.z + (want.z - v.z) * k }, true);
+    }
+  }
+
+  private stopLift() {
+    if (this.lifting) this.lifting.liftedBy = null;
+    this.lifting = null;
   }
 
   /** Vira um pouco para o inimigo mais perto que estiver na frente. */
@@ -437,6 +527,8 @@ export class Fighter {
   knockOut() {
     if (this.ko || !this.alive) return;
     this.koTimer = Math.min(TUNING.koBase + this.koCount * TUNING.koStep, TUNING.koMax);
+    this.koFull = this.koTimer;
+    this.koMashed = 0;
     this.koCount++;
     this.dizzy = 100;
     this.hands.L.release();
@@ -444,6 +536,7 @@ export class Fighter {
     this._pendingKo = true; // o evento sai no próximo passo
   }
   _pendingKo = false;
+  private _mashPrev = emptyControl();
 
   /** Recebe um golpe (chamado pela Arena). */
   receiveHit(power: number, dir: THREE.Vector3, part: PartName | undefined, knockSpeed: number) {
@@ -508,7 +601,7 @@ export class Fighter {
     const s = this.strength;
     const pel = this.part('pelvis');
     const chest = this.part('chest');
-    const heavy = this.hands.L.holding() || this.hands.R.holding() ? 0.7 : 1;
+    const heavy = this.lifting ? 0.55 : this.hands.L.holding() || this.hands.R.holding() ? 0.7 : 1;
     const target = move.clone().multiplyScalar(TUNING.walkSpeed * heavy);
 
     const pv = pel.linvel();
@@ -558,6 +651,11 @@ export class Fighter {
       target.addScaledVector(this.fwd(), Math.sin(tt * 1.3 + 1) * 0.8 * wobbly);
     }
     if (this.celebrating) target.set(0, 0, 0);
+    // Mirando em alguém caído e sem andar: dá uns passinhos até ele
+    if (this.grabAim && moveMag < 0.15) {
+      const d = this.grabAim.clone().sub(this.pos('pelvis')).setY(0);
+      if (d.length() > 0.75) target.copy(d.normalize().multiplyScalar(1.8));
+    }
 
     const ctrl = (this.grounded ? 0.2 : 0.045) * s;
     for (const b of [pel, chest]) {
@@ -570,7 +668,8 @@ export class Fighter {
     if (this.grounded && this.jumpT <= 0) {
       // Sobe e desce a cada passo (gingado) e se agacha antes do pulo.
       const bob = Math.abs(Math.sin(this.walkPhase)) * 0.07 * Math.min(1, this.speed / 3) - 0.035 * Math.min(1, this.speed / 3);
-      const crouch = this.crouchT >= 0 ? 0.24 : 0;
+      const reachingLow = this.grabAim ? Math.min(0.32, Math.max(0, this.pos('chest').y - this.grabAim.y - 0.2) * 0.6) : 0;
+      const crouch = (this.crouchT >= 0 ? 0.24 : 0) + reachingLow;
       const err = DIM.hover + bob - crouch - this.groundDist;
       const vy = pel.linvel().y;
       const acc = THREE.MathUtils.clamp(err * 170 - vy * 20, -25, 70) - GRAVITY;
@@ -629,6 +728,7 @@ export class Fighter {
     roll += Math.sin(t * 3.3 + 1) * 0.3 * wob;
     if (this.hurtT > 0) pitch -= 0.5; // se encolhe para trás ao levar soco
     if (this.crouchT >= 0) pitch += 0.25; // agachadinha antes do pulo
+    if (this.grabAim) pitch += 0.75; // se curva para pegar alguém no chão
     const hb = this.headbutt.t;
     if (hb >= 0) pitch += hb < 0.08 ? -0.5 : hb < 0.35 ? 1.1 : 0.3;
     const kt = this.kick.t;
@@ -738,7 +838,10 @@ export class Fighter {
         str = 0.8;
       } else if (grabbing || hand.holding()) {
         // "Braços de zumbi": esticados para frente, balançando de leve
-        const reach = chestPos
+        // (ou mirando em quem está caído no chão)
+        const reach = this.grabAim && !hand.holding()
+          ? this.grabAim.clone().addScaledVector(sideV, 0.14)
+          : chestPos
           .clone()
           .addScaledVector(fwd, 1.05 * Math.cos(reachPitch))
           .addScaledVector(UP, 1.05 * Math.sin(reachPitch) + 0.05 + Math.sin(t * 7 + ph) * 0.06)

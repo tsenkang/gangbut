@@ -82,6 +82,8 @@ export class Bot implements InputSource {
     if (!f || !f.alive || f.ko) {
       o.grabL = o.grabR = false;
       o.moveX = o.moveY = 0;
+      // desmaiado: robôs espertos apertam botões para acordar antes
+      if (f && f.ko && this.difficulty !== 'facil' && Math.random() < FIXED_DT * this.p.escapeRate * 0.8) o.jump = true;
       return { ...o };
     }
     const dt = FIXED_DT;
@@ -229,9 +231,9 @@ export class Bot implements InputSource {
     to.normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), this.aimNoise * Math.min(1, dist / 3));
 
     if (this.mode === 'carry') {
-      // Leva o coitado até a borda mais perto e joga.
+      // Leva o coitado até a borda mais perto e joga (os espertos erguem antes).
       o.grabL = o.grabR = true;
-      o.armY = 0.5;
+      o.armY = this.difficulty === 'dificil' || (this.difficulty === 'medio' && this.target?.ko) ? 1 : 0.5;
       const away = me.clone().sub(center).setY(0);
       if (away.lengthSq() < 0.01) away.set(1, 0, 0);
       away.normalize();
