@@ -48,15 +48,16 @@ export class Factory extends GameMap {
 
   build() {
     this.lights({
-      skyTop: 0x15141a,
-      skyBottom: 0x2e2722,
-      fog: { color: 0x221d1c, near: 22, far: 60 },
-      sunColor: 0xffd2a0,
-      sunIntensity: 1.6,
+      // galpão com poeira no ar, luz amarelada entrando pelas janelas altas
+      skyTop: 0x2a2826,
+      skyBottom: 0x5a4a3c,
+      fog: { color: 0x4d4038, near: 20, far: 62 },
+      sunColor: 0xffdcae,
+      sunIntensity: 2.1,
       sunPos: new THREE.Vector3(6, 18, 10),
-      hemiSky: 0x8f9bb5,
-      hemiGround: 0x3a2a1e,
-      hemiIntensity: 1.15,
+      hemiSky: 0xb3bccc,
+      hemiGround: 0x5a4130,
+      hemiIntensity: 1.45,
       shadowExtent: 14,
     });
     const floorTex = canvasTexture(

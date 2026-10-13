@@ -19,7 +19,7 @@ Recomendado: Chrome ou Edge (melhor suporte a controles e vibração).
 
 - `npm run build` gera a versão final em `dist/`.
 - Atalho para ver uma partida só de robôs: `http://localhost:5173/?demo=telhado`
-  (também `fabrica`, `gelatina`, `trem`, `lava` ou `rodizio`).
+  (também `fabrica`, `rodagigante`, `trem`, `incinerador`, `vigas` ou `rodizio`).
 
 ## Como jogar
 
@@ -82,9 +82,9 @@ personagem e cor. Para criar uma nova, veja `src/characters/Costumes.ts`.
 |---|---|
 | 🏙️ Telhado | Noite, outdoor de neon com passarela; a frente não tem mureta |
 | 🏭 Fábrica | Esteira que leva todo mundo para o buraco + prensa que desce de tempos em tempos |
-| 🍮 Ringue de Gelatina | O ringue inclina, treme e quica sobre um mar de calda |
-| 🚂 Trem em Movimento | Postes rentes aos lados e túnel que varre quem estiver em pé |
-| 🌋 Ponte sobre Lava | As tábuas tremem e caem uma a uma |
+| 🎡 Roda-Gigante | Plataformas de embarque e cabines que sobem e descem; de vez em quando a roda dispara |
+| 🚂 Trem em Movimento | Atravessa a periferia da cidade; postes rentes aos lados e túnel que varre quem estiver em pé |
+| 🔥 Incinerador | Passarela de grades sobre a fornalha: as grades caem uma a uma e às vezes sobe uma labareda |
 | 🏗️ Vigas | Vigas estreitas de prédio em obras, guindaste que varre e ventania |
 
 ## Como adicionar um mapa novo

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GameMap, hazardStripes, type ArenaApi } from './MapBase';
-import { cityBackdrop, grimeTexture, neonTexture } from './City';
+import { cityBackdrop, grimeTexture, hazeBelow, neonTexture } from './City';
 
 // ------------------------------------------------------------
 // Mapa 1 — TELHADO
@@ -36,7 +36,7 @@ export class Rooftop extends GameMap {
     this.lights({
       skyTop: 0x070a18,
       skyBottom: 0x3a2f4f,
-      fog: { color: 0x241f33, near: 30, far: 110 },
+      fog: { color: 0x2f2944, near: 24, far: 85 },
       sunColor: 0xa9b8ff, // luz da lua
       sunIntensity: 1.7,
       sunPos: new THREE.Vector3(-10, 22, 12),
@@ -176,6 +176,10 @@ export class Rooftop extends GameMap {
 
     // ----- cidade à noite
     const city = cityBackdrop(this.ctx.root, { below: 42, keepClear: (x, z) => z > 6 && Math.abs(x) < 22 });
+    hazeBelow(this.ctx.root, 0x3a3352, [
+      [-14, 0.35],
+      [-26, 0.55],
+    ]);
     this.blink.push(...city.blink);
 
     // ----- peças soltas

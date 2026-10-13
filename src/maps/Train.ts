@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GameMap, canvasTexture, type ArenaApi, type DeathKind } from './MapBase';
-import { grimeTexture } from './City';
+import { grimeTexture, windowsTexture } from './City';
 
 /** Roda de trem com raios, para dar para ver girando. */
 function wheelTexture() {
@@ -94,10 +94,10 @@ export class Train extends GameMap {
 
   build() {
     this.lights({
-      // fim de tarde, céu alaranjado e neblina (clima de cidade industrial)
-      skyTop: 0x34405e,
-      skyBottom: 0xe0905a,
-      fog: { color: 0x9a7a6a, near: 30, far: 120 },
+      // fim de tarde enevoado na periferia da cidade
+      skyTop: 0x3a4a6a,
+      skyBottom: 0xd99a7e,
+      fog: { color: 0x9c8f96, near: 26, far: 105 },
       sunColor: 0xffc08a,
       sunIntensity: 2.3,
       sunPos: new THREE.Vector3(-14, 12, 10),
@@ -113,11 +113,12 @@ export class Train extends GameMap {
       256,
       256,
       (g) => {
-        g.fillStyle = '#6e6450';
+        // cascalho e terra cinzenta de pátio ferroviário
+        g.fillStyle = '#5f5c58';
         g.fillRect(0, 0, 256, 256);
         for (let i = 0; i < 500; i++) {
           const r = Math.random();
-          g.fillStyle = r < 0.35 ? '#5f573f' : r < 0.6 ? '#7d735c' : r < 0.8 ? '#58603a' : '#6b7244';
+          g.fillStyle = r < 0.35 ? '#504d4a' : r < 0.6 ? '#6d6a65' : r < 0.8 ? '#4c4f47' : '#5a5650';
           g.fillRect(Math.random() * 256, Math.random() * 256, 3 + Math.random() * 6, 2 + Math.random() * 3);
         }
       },
@@ -127,7 +128,7 @@ export class Train extends GameMap {
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -4.75;
     this.deco(ground, false);
-    const farGround = new THREE.Mesh(new THREE.PlaneGeometry(700, 500), this.material(0x5f574a));
+    const farGround = new THREE.Mesh(new THREE.PlaneGeometry(700, 500), this.material(0x4f4c4a));
     farGround.rotation.x = -Math.PI / 2;
     farGround.position.y = -4.8;
     this.deco(farGround, false);
@@ -325,23 +326,53 @@ export class Train extends GameMap {
         }
     }
 
-    // Cenário que passa: árvores e morros
-    for (let i = 0; i < 26; i++) {
-      const tree = new THREE.Group();
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 2, 6), this.material(0x7a4a2a));
-      trunk.position.y = 1;
-      const top = new THREE.Mesh(new THREE.ConeGeometry(1.4, 3.2, 8), this.material(0x3b4a2e));
-      top.position.y = 3.2;
-      tree.add(trunk, top);
-      const side = Math.random() < 0.5 ? -1 : 1;
-      tree.position.set(-100 + Math.random() * 200, -4.4, side * (8 + Math.random() * 20));
-      this.deco(tree, false);
-      this.scenery.push(tree);
+    // Cenário que passa: galpões, muros pichados e prédios da periferia
+    const walls = ['#5a5560', '#6a5f58', '#4f5866', '#625a5e', '#6b6a70'];
+    const shedRoof = this.material(0x3b3a3e, { roughness: 0.9 });
+    for (let i = 0; i < 30; i++) {
+      const side = i % 2 ? 1 : -1;
+      const tall = Math.random() < 0.45;
+      const w = 6 + Math.random() * 8;
+      const h = tall ? 10 + Math.random() * 16 : 3 + Math.random() * 4;
+      const d = 5 + Math.random() * 6;
+      const tex = windowsTexture(tall ? 5 : 8, tall ? 10 : 3, tall ? 0.3 : 0.15, walls[i % walls.length]);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(Math.max(1, Math.round(w / 5)), tall ? Math.max(1, Math.round(h / 10)) : 1);
+      const bld = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.35, roughness: 0.95 }));
+      body.position.y = h / 2;
+      bld.add(body);
+      // galpão baixo ganha telhado de duas águas
+      if (!tall) {
+        for (const k of [-1, 1]) {
+          const roof = new THREE.Mesh(new THREE.BoxGeometry(w + 0.4, 0.2, d * 0.58), shedRoof);
+          roof.rotation.x = k * 0.42;
+          roof.position.set(0, h + d * 0.11, k * d * 0.26);
+          bld.add(roof);
+        }
+      }
+      bld.position.set(-110 + i * 7.5 + Math.random() * 3, -4.75, side * (12 + d / 2 + Math.random() * 14));
+      this.deco(bld, false);
+      this.scenery.push(bld);
     }
-    for (let i = 0; i < 8; i++) {
-      const hill = new THREE.Mesh(new THREE.SphereGeometry(18 + Math.random() * 10, 16, 10), this.material(0x4e4a48));
-      hill.position.set(-150 + i * 45, -18, -70 - Math.random() * 30);
-      this.deco(hill, false);
+    // Muro baixo de concreto acompanhando a linha (passa rapidinho)
+    const wallTex = grimeTexture('#7a766f', [1, 1], { tiles: 2, dark: 'rgba(0,0,0,0.25)' });
+    for (let i = 0; i < 12; i++) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(17, 2.2, 0.4), new THREE.MeshStandardMaterial({ map: wallTex, roughness: 1 }));
+      m.position.set(-110 + i * 18.5, -3.65, 9.5);
+      this.deco(m, false);
+      this.scenery.push(m);
+    }
+    // Horizonte da cidade lá longe (parado, sumindo na neblina)
+    for (let i = 0; i < 22; i++) {
+      const h = 20 + Math.random() * 45;
+      const w = 8 + Math.random() * 10;
+      const tex = windowsTexture(6, 14, 0.25, walls[i % walls.length]);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(2, Math.round(h / 12));
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.4, roughness: 1 }));
+      b.position.set(-160 + i * 15 + Math.random() * 6, -4.75 + h / 2, -55 - Math.random() * 30);
+      this.deco(b, false);
     }
 
     // Túnel (fica longe até a hora de passar)

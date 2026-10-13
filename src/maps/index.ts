@@ -1,9 +1,9 @@
 import type { GameMap } from './MapBase';
 import { Rooftop } from './Rooftop';
 import { Factory } from './Factory';
-import { JellyRing } from './JellyRing';
+import { FerrisWheel } from './FerrisWheel';
 import { Train } from './Train';
-import { LavaBridge } from './LavaBridge';
+import { Incinerator } from './Incinerator';
 import { Girders } from './Girders';
 
 // ------------------------------------------------------------
@@ -14,9 +14,9 @@ import { Girders } from './Girders';
 export const MAPS: { id: string; make: () => GameMap }[] = [
   { id: 'telhado', make: () => new Rooftop() },
   { id: 'fabrica', make: () => new Factory() },
-  { id: 'gelatina', make: () => new JellyRing() },
+  { id: 'rodagigante', make: () => new FerrisWheel() },
   { id: 'trem', make: () => new Train() },
-  { id: 'lava', make: () => new LavaBridge() },
+  { id: 'incinerador', make: () => new Incinerator() },
   { id: 'vigas', make: () => new Girders() },
 ];
 

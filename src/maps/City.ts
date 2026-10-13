@@ -199,3 +199,13 @@ export function cityBackdrop(root: THREE.Object3D, opts: { below: number; radius
   root.add(group);
   return { group, blink };
 }
+
+/** Camadas de neblina lá embaixo (dá a sensação de altura: cair = sumir na névoa). */
+export function hazeBelow(root: THREE.Object3D, color: number, layers: [number, number][] = [[-9, 0.5], [-16, 0.7]]) {
+  for (const [y, o] of layers) {
+    const haze = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: o, depthWrite: false, fog: false }));
+    haze.rotation.x = -Math.PI / 2;
+    haze.position.y = y;
+    root.add(haze);
+  }
+}

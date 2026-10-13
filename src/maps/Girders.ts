@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GameMap, hazardStripes, type ArenaApi } from './MapBase';
 import { RAPIER } from '../physics/Physics';
-import { cityBackdrop, grimeTexture, iBeamGeometry } from './City';
+import { cityBackdrop, grimeTexture, hazeBelow, iBeamGeometry } from './City';
 import type { Fighter } from '../characters/Fighter';
 
 // ------------------------------------------------------------
@@ -154,6 +154,10 @@ export class Girders extends GameMap {
     // ----- cidade lá embaixo
     const city = cityBackdrop(this.ctx.root, { below: 80, radius: [45, 120], count: 44, walls: ['#5a5552', '#6a6560', '#4f5560', '#5e5a66'] });
     this.blink.push(...city.blink);
+    hazeBelow(this.ctx.root, 0xb9b6b4, [
+      [-22, 0.3],
+      [-38, 0.5],
+    ]);
 
     this.prop('caixa', new THREE.Vector3(3.6, 3.2, -4));
     this.prop('caixa', new THREE.Vector3(-3, 0.5, 0));
