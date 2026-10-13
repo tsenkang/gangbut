@@ -6,7 +6,7 @@ import type { MatchConfig } from './game/config';
 // ------------------------------------------------------------
 // Ponto de partida: carrega a física (WebAssembly) e liga o jogo.
 //
-// Atalho: abra com ?demo=telhado (ou fabrica, rodagigante, trem, incinerador, vigas,
+// Atalho: abra com ?demo=telhado (ou fabrica, rodagigante, trem, incinerador, vigas, demolicao, elevadores, farol,
 // rodizio) para ver uma partida só de robôs.
 // ------------------------------------------------------------
 

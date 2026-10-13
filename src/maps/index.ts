@@ -5,6 +5,9 @@ import { FerrisWheel } from './FerrisWheel';
 import { Train } from './Train';
 import { Incinerator } from './Incinerator';
 import { Girders } from './Girders';
+import { Demolition } from './Demolition';
+import { Elevators } from './Elevators';
+import { Lighthouse } from './Lighthouse';
 
 // ------------------------------------------------------------
 // Lista de mapas. Para adicionar um mapa novo, importe a classe
@@ -18,6 +21,9 @@ export const MAPS: { id: string; make: () => GameMap }[] = [
   { id: 'trem', make: () => new Train() },
   { id: 'incinerador', make: () => new Incinerator() },
   { id: 'vigas', make: () => new Girders() },
+  { id: 'demolicao', make: () => new Demolition() },
+  { id: 'elevadores', make: () => new Elevators() },
+  { id: 'farol', make: () => new Lighthouse() },
 ];
 
 export const makeMap = (id: string) => (MAPS.find((m) => m.id === id) ?? MAPS[0]).make();

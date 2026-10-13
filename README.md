@@ -19,7 +19,7 @@ Recomendado: Chrome ou Edge (melhor suporte a controles e vibração).
 
 - `npm run build` gera a versão final em `dist/`.
 - Atalho para ver uma partida só de robôs: `http://localhost:5173/?demo=telhado`
-  (também `fabrica`, `rodagigante`, `trem`, `incinerador`, `vigas` ou `rodizio`).
+  (também `fabrica`, `rodagigante`, `trem`, `incinerador`, `vigas`, `demolicao`, `elevadores`, `farol` ou `rodizio`).
 
 ## Como jogar
 
@@ -86,6 +86,9 @@ personagem e cor. Para criar uma nova, veja `src/characters/Costumes.ts`.
 | 🚂 Trem em Movimento | Atravessa a periferia da cidade; postes rentes aos lados e túnel que varre quem estiver em pé |
 | 🔥 Incinerador | Passarela de grades sobre a fornalha: as grades caem uma a uma e às vezes sobe uma labareda |
 | 🏗️ Vigas | Vigas estreitas de prédio em obras, guindaste que varre e ventania |
+| 💥 Demolição | Último andar de um prédio sendo derrubado: a bola de demolição balança e muda de faixa |
+| 🛗 Elevadores | Três elevadores de obra subindo e descendo; lá no alto a viga raspa a cabeça |
+| 🌊 Farol | Varanda redonda num farol, na tempestade: guarda-corpo com buracos e rajadas de vento |
 
 ## Como adicionar um mapa novo
 
