@@ -72,7 +72,7 @@ tela. Se o controle de alguém desligar durante a luta, o jogo pausa sozinho.
 
 ## Personagens
 
-O padrão é o **Clássico**: um feijãozinho de gelatina baixinho e largo, liso, de cor única, sem pescoço, com olhinhos de ponto, bracinhos gordinhos e perninhas curtas (estilo "party brawler"). Também há Gominha, Pão de Forma, Ovo e Pimentão.
+O padrão é o **Clássico**: um feijão de gelatina inteiriço (uma pele lisa só, que dobra e amassa seguindo quadril, tronco e cabeça), sem pescoço, com dois olhinhos ovais, braços compridos e molengas com mãozinhas redondas e perninhas curtas (estilo "party brawler"). As roupas das fantasias também dobram junto com o corpo. Também há Gominha, Pão de Forma, Ovo e Pimentão.
 
 ## Fantasias
 

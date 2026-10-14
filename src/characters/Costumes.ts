@@ -47,6 +47,8 @@ function shirt(m: THREE.Material) {
   const g = mesh(new THREE.CapsuleGeometry(FIT.r, FIT.len, 8, 18), m);
   g.scale.set(1.04, 0.92, 1.0);
   g.position.y = FIT.y;
+  // No feijão inteiriço, a roupa vira uma "pele" que dobra junto (faixa de altura)
+  g.userData.band = [0.42, 1.34];
   return g;
 }
 
@@ -166,6 +168,7 @@ export function applyCostume(id: CostumeId, parts: Record<PartName, THREE.Group>
       const blue = M(0x1e4bd2);
       const shorts = mesh(new THREE.SphereGeometry(0.35 * Math.max(1, k * 0.97), 16, 12), blue, 0, 0, 0);
       shorts.scale.set(1.08, 0.85, 1.05);
+      shorts.userData.band = [0.1, 0.62];
       parts.pelvis.add(shorts);
       // faixinha de cabelo
       const band = mesh(new THREE.TorusGeometry(0.31, 0.03, 6, 24), M(0xffffff), 0, 0.18, 0);

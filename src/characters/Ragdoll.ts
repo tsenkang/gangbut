@@ -31,14 +31,15 @@ export const DIM = {
   chestY: 0.98,
   headR: 0.34,
   headY: 1.5,
-  armR: 0.11,
-  armHH: 0.12,
+  // braços compridos e molengas: as mãos ficam quase na altura do joelho
+  armR: 0.1,
+  armHH: 0.15,
   armX: 0.5,
-  armY: 1.06,
-  foreHH: 0.11,
-  foreY: 1.06 - 0.12 - 0.04 - 0.11 - 0.04, // logo abaixo do cotovelo
+  armY: 1.03,
+  foreHH: 0.14,
+  foreY: 1.03 - 0.15 - 0.04 - 0.14 - 0.04, // logo abaixo do cotovelo
   handR: 0.14,
-  handOffset: 0.2,
+  handOffset: 0.23,
   legR: 0.14,
   legHH: 0.08,
   legX: 0.17,

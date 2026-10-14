@@ -179,6 +179,7 @@ export class Fighter {
       this.root.add(this.skin.parts[n]);
       this.links.add(this.ragdoll.parts[n].body, this.skin.parts[n]);
     }
+    this.addSoft();
     scene.add(this.root);
     // Se algum corpo que eu seguro sumir, solto a mão antes.
     physics.onBodyRemoved((b) => {
@@ -214,10 +215,35 @@ export class Fighter {
     return out.set(Math.cos(this.facing), 0, -Math.sin(this.facing));
   }
 
+  /** Pele inteiriça do feijão: a malha e os ossos entram junto com as peças. */
+  private addSoft() {
+    const soft = this.skin.soft;
+    if (!soft) return;
+    this.root.add(soft.bones.pelvis, soft.bones.chest, soft.bones.head, soft.mesh, ...soft.extra);
+  }
+
+  /** Os ossos da pele copiam a pose (e o "amassado") de cada peça. */
+  private syncSoft() {
+    const soft = this.skin.soft;
+    if (!soft) return;
+    for (const n of ['pelvis', 'chest', 'head'] as const) {
+      const src = this.skin.parts[n];
+      const b = soft.bones[n];
+      b.position.copy(src.position);
+      b.quaternion.copy(src.quaternion);
+      b.scale.copy(src.scale);
+    }
+  }
+
   /** Muda a aparência sem recriar o corpo (tela de escolha). */
   setAppearance(app: Appearance) {
     this.appearance = app;
     for (const n of PART_NAMES) this.root.remove(this.skin.parts[n]);
+    if (this.skin.soft) {
+      const soft = this.skin.soft;
+      this.root.remove(soft.mesh, soft.bones.pelvis, soft.bones.chest, soft.bones.head, ...soft.extra);
+      for (const m of [soft.mesh, ...soft.extra]) m.geometry.dispose();
+    }
     this.skin.materials.forEach((m) => m.dispose());
     this.skin = buildSkin(app);
     this.links.links = [];
@@ -225,6 +251,7 @@ export class Fighter {
       this.root.add(this.skin.parts[n]);
       this.links.add(this.ragdoll.parts[n].body, this.skin.parts[n]);
     }
+    this.addSoft();
   }
 
   // ---------------------------------------------------------- passo
@@ -1233,7 +1260,7 @@ export class Fighter {
   render(alpha: number) {
     if (this.removed) return;
     this.links.apply(alpha);
-    // reaplica a escala de "gelatina" depois do apply (que só mexe em posição/rotação)
+    this.syncSoft();
   }
 
   afterPhysics() {

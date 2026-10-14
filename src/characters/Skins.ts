@@ -66,8 +66,18 @@ export interface Face {
   smile: boolean;
 }
 
+/** Corpo inteiriço que se deforma seguindo quadril, tronco e cabeça. */
+export interface SoftBody {
+  mesh: THREE.SkinnedMesh;
+  bones: Record<'pelvis' | 'chest' | 'head', THREE.Bone>;
+  /** Roupas que também dobram com o corpo (camisa, calção). */
+  extra: THREE.SkinnedMesh[];
+}
+
 export interface SkinResult {
   parts: Record<PartName, THREE.Group>;
+  /** Só no feijão: a pele lisa do corpo (os "ossos" seguem as peças). */
+  soft?: SoftBody;
   face: Face;
   materials: THREE.Material[];
 }
@@ -84,14 +94,21 @@ function cached<T extends THREE.BufferGeometry>(key: string, make: () => T): T {
 }
 const sphere = (r: number) => cached('s' + r, () => new THREE.SphereGeometry(r, 24, 16));
 const capsule = (r: number, len: number) => cached(`c${r}_${len}`, () => new THREE.CapsuleGeometry(r, len, 8, 16));
-// Peças grandes do corpo: mais polígonos, para as junções ficarem lisinhas.
-const smoothSphere = (r: number) => cached('ss' + r, () => new THREE.SphereGeometry(r, 48, 32));
-const smoothCapsule = (r: number, len: number) => cached(`sc${r}_${len}`, () => new THREE.CapsuleGeometry(r, len, 20, 48));
 
 function bodyMaterial(char: CharacterId, color: number): THREE.MeshStandardMaterial {
   if (char === 'classico') {
-    // Fosco e macio, com um brilho leve de borracha
-    return new THREE.MeshPhysicalMaterial({ color, roughness: 0.6, sheen: 0.6, sheenRoughness: 0.5, clearcoat: 0.12, clearcoatRoughness: 0.6 });
+    // Bala de goma: macio, com brilho suave e um leve "brilho por dentro"
+    const c = new THREE.Color(color);
+    return new THREE.MeshPhysicalMaterial({
+      color,
+      roughness: 0.42,
+      sheen: 1,
+      sheenColor: c.clone().lerp(new THREE.Color(0xffffff), 0.55),
+      sheenRoughness: 0.35,
+      clearcoat: 0.3,
+      clearcoatRoughness: 0.35,
+      emissive: c.clone().multiplyScalar(0.1),
+    });
   }
   if (char === 'gominha') {
     // Goma: brilhante, parece doce de gelatina.
@@ -119,7 +136,7 @@ function buildFace(head: THREE.Group, frontZ: number, eyeY: number, scale = 1, d
   const xEyes: THREE.Object3D[] = [];
   for (const sx of [-1, 1]) {
     const eye = new THREE.Group();
-    eye.position.set(sx * (dots ? 0.1 : 0.115) * scale, eyeY, frontZ - 0.03);
+    eye.position.set(sx * (dots ? 0.115 : 0.115) * scale, eyeY, frontZ - (dots ? 0.045 : 0.03));
     if (!dots) {
       const white = mesh(sphere(0.085 * scale), eyeWhite);
       white.scale.set(1, 1.15, 0.6);
@@ -127,7 +144,7 @@ function buildFace(head: THREE.Group, frontZ: number, eyeY: number, scale = 1, d
     }
     // Pupila (no estilo "pontinho", o olho é só ela: oval preta)
     const pupil = mesh(sphere((dots ? 0.042 : 0.045) * scale), faceDark, 0, 0, (dots ? 0.02 : 0.045) * scale);
-    if (dots) pupil.scale.set(0.85, 1.35, 0.5);
+    if (dots) pupil.scale.set(0.8, 1.3, 0.55);
     else pupil.scale.z = 0.5;
     eye.add(pupil);
     pupils.push(pupil);
@@ -206,6 +223,74 @@ function buildHat(hat: HatId, top: number): THREE.Group | null {
   return g;
 }
 
+/**
+ * Feijão inteiriço: uma malha lisa (sem emendas) com três "ossos" —
+ * quadril, tronco e cabeça. Cada pedacinho da pele segue os ossos
+ * mais perto dele, então o corpo dobra e amassa como gelatina.
+ */
+const BEAN_BOTTOM = 0.12;
+const BEAN_TOP = 1.92;
+/** Raio do feijão numa altura (superelipse: lados quase retos, pontas redondas). */
+function beanRadius(y: number) {
+  const t = THREE.MathUtils.clamp((y - BEAN_BOTTOM) / (BEAN_TOP - BEAN_BOTTOM), 0, 1);
+  const u = (t - 0.5) * 2;
+  const base = Math.pow(Math.max(0, 1 - Math.pow(Math.abs(u), 2.4)), 1 / 2.4);
+  return Math.max(0.001, base * (0.5 - 0.055 * t)); // um tiquinho mais estreito em cima
+}
+
+/** Malha de revolução do feijão entre duas alturas, com pesos para os 3 ossos. */
+function beanGeometry(y0: number, y1: number, inflate: number, segs: number) {
+  const pts: THREE.Vector2[] = [];
+  for (let i = 0; i <= segs; i++) {
+    const y = y0 + ((y1 - y0) * i) / segs;
+    pts.push(new THREE.Vector2(beanRadius(y) * inflate, y));
+  }
+  const geo = new THREE.LatheGeometry(pts, 40);
+  geo.rotateY(Math.PI); // o meio da textura fica de frente
+  // pesos de cada vértice para cada osso (0 = quadril, 1 = tronco, 2 = cabeça)
+  const pos = geo.attributes.position;
+  const idx: number[] = [];
+  const wts: number[] = [];
+  const ss = (a: number, b: number, x: number) => THREE.MathUtils.smoothstep(x, a, b);
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    const wp = 1 - ss(0.55, 0.95, y);
+    const wh = ss(1.12, 1.42, y);
+    idx.push(0, 1, 2, 0);
+    wts.push(wp, Math.max(0, 1 - wp - wh), wh, 0);
+  }
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(idx, 4));
+  geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(wts, 4));
+  return geo;
+}
+
+function skinnedOn(geo: THREE.BufferGeometry, mat: THREE.Material | THREE.Material[], skeleton: THREE.Skeleton) {
+  const mesh = new THREE.SkinnedMesh(geo, mat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  mesh.frustumCulled = false;
+  mesh.bind(skeleton, new THREE.Matrix4());
+  return mesh;
+}
+
+/**
+ * Feijão inteiriço: uma malha lisa (sem emendas) com três "ossos" —
+ * quadril, tronco e cabeça. Cada pedacinho da pele segue os ossos
+ * mais perto dele, então o corpo dobra e amassa como gelatina.
+ */
+function softBean(mat: THREE.Material): SoftBody {
+  const mk = (y: number) => {
+    const b = new THREE.Bone();
+    b.position.set(0, y, 0);
+    b.updateMatrixWorld(true);
+    return b;
+  };
+  const bones = { pelvis: mk(DIM.pelvisY), chest: mk(DIM.chestY), head: mk(DIM.headY) };
+  const skeleton = new THREE.Skeleton([bones.pelvis, bones.chest, bones.head]);
+  const mesh = skinnedOn(beanGeometry(BEAN_BOTTOM, BEAN_TOP, 1, 48), mat, skeleton);
+  return { mesh, bones, extra: [] };
+}
+
 /** Monta todas as peças visuais de um lutador. */
 export function buildSkin(app: Appearance): SkinResult {
   const mat = bodyMaterial(app.character, app.color);
@@ -221,10 +306,10 @@ export function buildSkin(app: Appearance): SkinResult {
   // curtinhos e bem gordinhos, e pés da mesma cor do corpo.
   const fat = app.character === 'classico';
   for (const side of ['L', 'R'] as const) {
-    parts[('arm' + side) as PartName].add(mesh(capsule(DIM.armR + (fat ? 0.045 : 0.015), DIM.armHH * 2), mat));
+    parts[('arm' + side) as PartName].add(mesh(capsule(DIM.armR + (fat ? 0.03 : 0.015), DIM.armHH * 2 + 0.06), mat));
     const fore = parts[('fore' + side) as PartName];
-    fore.add(mesh(capsule(DIM.armR + (fat ? 0.035 : 0.01), DIM.foreHH * 2), mat));
-    const hand = mesh(sphere(fat ? 0.17 : 0.14), mat, 0, -DIM.handOffset, 0);
+    fore.add(mesh(capsule(DIM.armR + (fat ? 0.025 : 0.01), DIM.foreHH * 2 + 0.06), mat));
+    const hand = mesh(sphere(fat ? 0.165 : 0.14), mat, 0, -DIM.handOffset, 0);
     hand.scale.set(1, 0.95, 1.1);
     fore.add(hand);
     const leg = parts[('leg' + side) as PartName];
@@ -236,27 +321,27 @@ export function buildSkin(app: Appearance): SkinResult {
 
   // Quadril: bolinha que fecha o "feijão" por baixo.
   // (no feijão, tudo tem o mesmo raio: as peças se fundem num corpo liso)
-  const pelvis = mesh(fat ? smoothSphere(0.43) : sphere(0.36), mat);
-  pelvis.scale.set(fat ? 1 : 1.04, fat ? 1 : 0.85, 1);
-  parts.pelvis.add(pelvis);
+  if (!fat) {
+    const pelvis = mesh(sphere(0.36), mat);
+    pelvis.scale.set(1.04, 0.85, 1);
+    parts.pelvis.add(pelvis);
+  }
 
   const head = parts.head;
   const chest = parts.chest;
   let face: Face;
   let headTop = 0.32;
   let frontZ = 0.32;
+  let soft: SoftBody | undefined;
 
   switch (app.character) {
     case 'classico': {
       // Um feijão só: tronco largo + topo redondo grudado (sem pescoço)
-      const body = mesh(smoothCapsule(0.46, 0.46), mat);
-      body.position.y = 0.0;
-      chest.add(body);
-      const top = mesh(smoothSphere(0.455), mat, 0, -0.04, 0);
-      head.add(top);
-      face = buildFace(head, 0.43, 0.05, 1.15, true);
-      headTop = 0.39;
-      frontZ = 0.43;
+      // o corpo é a pele inteiriça (softBean); aqui só o rosto
+      soft = softBean(mat);
+      face = buildFace(head, 0.4, 0.08, 1.3, true);
+      headTop = 0.4;
+      frontZ = 0.42;
       break;
     }
     case 'gominha': {
@@ -348,6 +433,17 @@ export function buildSkin(app: Appearance): SkinResult {
   materials.push(
     ...applyCostume(costume, parts, headTop / hs, frontZ / hs, app.character === 'classico' ? { r: 0.51, len: 0.32, y: -0.1 } : undefined),
   );
+  if (soft) {
+    for (const n of ['chest', 'pelvis'] as PartName[]) {
+      for (const c of [...parts[n].children]) {
+        const band = c.userData.band as [number, number] | undefined;
+        if (!band) continue;
+        parts[n].remove(c);
+        const m = (c as THREE.Mesh).material;
+        soft.extra.push(skinnedOn(beanGeometry(band[0], band[1], n === 'pelvis' ? 1.045 : 1.035, 24), m, soft.mesh.skeleton));
+      }
+    }
+  }
   for (const c of head.children.slice(headBase)) {
     c.position.multiplyScalar(hs);
     c.scale.multiplyScalar(hs);
@@ -355,5 +451,5 @@ export function buildSkin(app: Appearance): SkinResult {
   // tudo que a fantasia criou também faz sombra
   for (const n of Object.keys(parts) as PartName[]) parts[n].traverse((o) => ((o as THREE.Mesh).isMesh ? (o.castShadow = true) : null));
 
-  return { parts, face: face!, materials };
+  return { parts, face: face!, materials, soft };
 }
