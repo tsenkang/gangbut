@@ -154,8 +154,18 @@ export class App {
     this.buildShowcase();
     this.setScreen(
       new MainMenu(this.input, this.engine, {
-        local: () => this.goSelect(false),
-        bots: () => this.goSelect(true),
+        local: () => {
+          this.setup.mode = 'briga';
+          this.goSelect(false);
+        },
+        bots: () => {
+          this.setup.mode = 'briga';
+          this.goSelect(true);
+        },
+        football: () => {
+          this.setup.mode = 'futebol';
+          this.goSelect(true);
+        },
         controls: () => this.goControls(),
         howto: () => this.goHowTo(),
       }),
@@ -268,7 +278,7 @@ export class App {
       bots--;
     }
     players.sort((a, b) => a.slot - b.slot);
-    return { players, mapId: this.setup.mapId, bestOf: this.setup.bestOf };
+    return { players, mapId: this.setup.mapId, bestOf: this.setup.bestOf, mode: this.setup.mode ?? 'briga' };
   }
 
   startMatch(cfg: MatchConfig) {

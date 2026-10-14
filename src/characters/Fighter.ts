@@ -94,6 +94,10 @@ export class Fighter {
   koTimer = 0;
   koCount = 0;
   koTotal = 0;
+  /** Modo futebol: time (0 vermelho, 1 azul; -1 = cada um por si), colegas e função do robô. */
+  team = -1;
+  teamMates: Fighter[] = [];
+  role: 'atacante' | 'zagueiro' | 'brigão' = 'atacante';
   strength = 1;
   hurtT = 0;
   lastAttacker: Fighter | null = null;

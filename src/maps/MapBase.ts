@@ -107,6 +107,16 @@ export abstract class GameMap {
     return null;
   }
 
+  /** Pontos extras que a câmera deve enquadrar (ex.: a bola). */
+  focusPoints(): THREE.Vector3[] {
+    return [];
+  }
+
+  /** Objetivo do robô além de brigar (ex.: a bola no futebol). null = briga normal. */
+  botObjective(_f: Fighter): { to: THREE.Vector3; strike: boolean } | null {
+    return null;
+  }
+
   /** Perigos que tiram alguém do jogo direto (ex.: atropelado pelo trem). */
   deathOf(_f: Fighter): DeathKind {
     return 'none';

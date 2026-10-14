@@ -81,6 +81,10 @@ que lembram gente famosa (sem nomes reais): Rei do Topete, Gênio Descabelado,
 Astro do Pop, Craque Camisa 10, Majestade e Bigode Artista. Combinam com qualquer
 personagem e cor. Para criar uma nova, veja `src/characters/Costumes.ts`.
 
+## ⚽ Modo Futebol
+
+No menu principal escolha **⚽ Futebol** (ou troque o **Modo** na tela de regras). Os jogadores se dividem em dois times — **Vermelho** (ataca para a direita) e **Azul** (ataca para a esquerda), com um anel colorido embaixo de cada um — num estádio fechado com uma bola gigante. Soque, cabeceie, dê voadora ou simplesmente empurre a bola até o gol do adversário; bater nos outros continua valendo. Ninguém sai do jogo: quem desmaia acorda e volta. A partida dura 3 minutos ou até um time fazer 3 gols; empate no fim vai para o **gol de ouro**. Os robôs dividem as funções (atacante, zagueiro, brigão) e completam os times.
+
 ## Mapas
 
 | Mapa | Perigo |

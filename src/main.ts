@@ -6,7 +6,7 @@ import type { MatchConfig } from './game/config';
 // ------------------------------------------------------------
 // Ponto de partida: carrega a física (WebAssembly) e liga o jogo.
 //
-// Atalho: abra com ?demo=telhado (ou fabrica, rodagigante, trem, incinerador, vigas, demolicao, elevadores, farol, caminhoes, teleferico, ventiladores, barco, aquario, ponte, metro, moedor, andaime,
+// Atalho: abra com ?demo=telhado (ou fabrica, rodagigante, trem, incinerador, vigas, demolicao, elevadores, farol, caminhoes, teleferico, ventiladores, barco, aquario, ponte, metro, moedor, andaime, futebol,
 // rodizio) para ver uma partida só de robôs.
 // ------------------------------------------------------------
 
@@ -18,6 +18,7 @@ async function boot() {
   const demo = new URLSearchParams(location.search).get('demo');
   if (demo) {
     const cfg: MatchConfig = {
+      mode: demo === 'futebol' ? 'futebol' : 'briga',
       mapId: demo,
       bestOf: 3,
       players: [0, 1, 2, 3].map((i) => ({

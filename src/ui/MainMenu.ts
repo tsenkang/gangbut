@@ -11,6 +11,7 @@ import type { Engine, Quality } from '../game/Engine';
 export interface MainMenuActions {
   local(): void;
   bots(): void;
+  football(): void;
   controls(): void;
   howto(): void;
 }
@@ -37,6 +38,7 @@ export class MainMenu implements Screen {
     this.list = new MenuList([
       { label: 'Jogar (local)', hint: '2 a 4 jogadores na mesma tela', action: act.local },
       { label: 'Contra robôs', hint: 'Robôs completam as vagas', action: act.bots },
+      { label: '⚽ Futebol', hint: 'Dois times, uma bola gigante (robôs completam os times)', action: act.football },
       { label: 'Como jogar', hint: 'Golpes, botões e o combo básico', action: act.howto },
       { label: 'Configurar controles', hint: 'Quem usa qual controle', action: act.controls },
       {

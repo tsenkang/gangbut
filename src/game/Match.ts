@@ -12,6 +12,7 @@ import { audio } from '../audio/Audio';
 import { music } from '../audio/Music';
 import type { Fighter } from '../characters/Fighter';
 import { labelsFor, type ControlLabels } from '../input/labels';
+import { Football, TEAM_COLORS, TEAM_NAMES } from '../maps/Football';
 
 // ------------------------------------------------------------
 // Uma partida: várias rodadas até alguém vencer a "melhor de 3"
@@ -22,6 +23,8 @@ type State = 'countdown' | 'fight' | 'roundEnd' | 'matchEnd';
 
 export const ROUND_TIME = 120; // segundos por rodada
 const SUDDEN_DEATH_AT = 30; // segundos restantes para a morte súbita
+export const FOOTBALL_TIME = 180; // futebol: 3 minutos
+export const GOALS_TO_WIN = 3;
 
 export interface MatchDeps {
   engine: Engine;
@@ -47,6 +50,10 @@ export class Match {
   private lastCount = -1;
   private suddenDeath = false;
   private roundWinner: Fighter | null = null;
+  /** Futebol: gols de cada time, prorrogação e quando acaba. */
+  score = [0, 0];
+  private golden = false;
+  private endIn = -1;
   /** Chamado quando a partida termina e o jogador escolhe o que fazer. */
   onExit: (choice: 'again' | 'setup' | 'menu') => void = () => {};
 
@@ -56,10 +63,15 @@ export class Match {
   ) {
     this.hud = new Hud(d.engine.camera);
     const ids = MAPS.map((m) => m.id);
-    if (config.mapId === 'rodizio') {
+    if (config.mode === 'futebol') this.mapOrder = ['futebol'];
+    else if (config.mapId === 'rodizio') {
       // embaralha a ordem dos mapas
       this.mapOrder = ids.slice().sort(() => Math.random() - 0.5);
     } else this.mapOrder = [config.mapId];
+  }
+
+  get football() {
+    return this.config.mode === 'futebol';
   }
 
   get need() {
@@ -92,13 +104,14 @@ export class Match {
       const p = this.config.players.find((x) => x.slot === f.index);
       if (p?.deviceId) humans.set(f, labelsFor(this.d.input.getSource(p.deviceId)));
     }
+    if (this.football) this.setupFootball(arena);
     this.hud.setFighters(arena.fighters, humans, this.round === 1);
-    if (this.round === 1 && humans.size)
+    if (this.round === 1 && humans.size && !this.football)
       this.hud.announce('Combo: soque até desmaiar → segure agarrar → leve até a borda → soco para jogar!', 'tip');
     this.state = 'countdown';
     this.stateTime = 0;
     this.lastCount = -1;
-    this.timeLeft = ROUND_TIME;
+    this.timeLeft = this.football ? FOOTBALL_TIME : ROUND_TIME;
     this.suddenDeath = false;
     music.play(arena.map.music);
     this.hud.big(arena.map.name, 'mapname', 1400);
@@ -130,12 +143,16 @@ export class Match {
           this.stateTime = 0;
           a.fighters.forEach((f) => (f.frozen = false));
           a.hazardsOn = true;
-          this.hud.big('BRIGA!', 'go', 900);
+          this.hud.big(this.football ? 'BOLA ROLANDO!' : 'BRIGA!', 'go', 900);
           audio.play('go');
         }
         break;
       }
       case 'fight': {
+        if (this.football) {
+          this.footballFight(dt);
+          break;
+        }
         if (!this.paused) this.timeLeft -= dt;
         if (this.round === 1 && this.stateTime > 12 && this.stateTime - dt <= 12) this.hud.shrinkLegend();
         if (!this.suddenDeath && this.timeLeft <= SUDDEN_DEATH_AT) {
@@ -169,7 +186,8 @@ export class Match {
         break;
     }
 
-    this.hud.setScore(this.config.players, this.wins, this.round, this.config.bestOf, a.map.name, this.timeLeft);
+    if (this.football) this.hud.setFootball(this.score, this.timeLeft, this.golden, GOALS_TO_WIN);
+    else this.hud.setScore(this.config.players, this.wins, this.round, this.config.bestOf, a.map.name, this.timeLeft);
     a.frame(dt, alpha);
     this.hud.update(dt);
   }
@@ -182,6 +200,95 @@ export class Match {
       const best = champ ?? this.config.players.slice().sort((x, y) => this.wins[y.slot] - this.wins[x.slot])[0];
       this.showMatchEnd(best);
     } else this.nextRound();
+  }
+
+  // ------------------------------------------------ futebol
+  /** Divide em dois times (alternando), põe cada um no seu campo e liga o gol. */
+  private setupFootball(arena: Arena) {
+    const map = arena.map as Football;
+    arena.koOut = false;
+    const sorted = arena.fighters.slice().sort((a, b) => a.index - b.index);
+    const teams: Fighter[][] = [[], []];
+    sorted.forEach((f, i) => teams[i % 2].push(f));
+    teams.forEach((list, t) =>
+      list.forEach((f, i) => {
+        f.team = t;
+        f.teamMates = list.filter((x) => x !== f);
+        f.role = i === 0 ? 'atacante' : i === 1 ? 'zagueiro' : 'brigão';
+        const spot = map.kickoffSpot(t, i);
+        f.teleport(spot, t === 0 ? Math.PI / 2 : -Math.PI / 2);
+      }),
+    );
+    map.onGoal = (team) => this.goal(team);
+    this.score = [0, 0];
+    this.golden = false;
+    this.endIn = -1;
+    this.hud.announce('⚽ Futebol! Vermelho ataca para a direita ➜, Azul para a esquerda ⬅', 'tip');
+  }
+
+  private goal(team: number) {
+    if (this.state !== 'fight' || this.endIn >= 0) return;
+    this.score[team]++;
+    audio.play('win');
+    this.hud.big('GOOOL!', 'go', 1600);
+    this.hud.announce(`⚽ GOL do Time ${TEAM_NAMES[team]}! ${this.score[0]} × ${this.score[1]}`, 'out');
+    if (this.golden || this.score[team] >= GOALS_TO_WIN) this.endIn = 2.6;
+  }
+
+  private footballFight(dt: number) {
+    const a = this.arena!;
+    if (this.round === 1 && this.stateTime > 12 && this.stateTime - dt <= 12) this.hud.shrinkLegend();
+    if (this.endIn >= 0) {
+      this.endIn -= dt;
+      if (this.endIn < 0) this.finishFootball();
+      return;
+    }
+    if (!this.paused && !this.golden) this.timeLeft -= dt;
+    if (this.timeLeft <= 0 && !this.golden) {
+      if (this.score[0] === this.score[1]) {
+        this.golden = true;
+        this.hud.big('GOL DE OURO!', 'go', 1800);
+        this.hud.announce('Empate! Prorrogação: quem marcar primeiro vence.', 'tip');
+        audio.play('alarm');
+      } else this.finishFootball();
+    }
+    // desmaiou no campo: acorda sozinho (ninguém sai do jogo)
+    for (const f of a.fighters) if (f.koTotal > 18) f.koTotal = 0;
+  }
+
+  private finishFootball() {
+    const a = this.arena!;
+    const win = this.score[0] === this.score[1] ? -1 : this.score[0] > this.score[1] ? 0 : 1;
+    for (const f of a.fighters) if (f.team === win) f.celebrating = true;
+    this.state = 'matchEnd';
+    this.clearOverlay();
+    audio.play('win');
+    audio.play('cheer');
+    music.play('menu');
+    const names = (t: number) =>
+      this.config.players
+        .filter((p) => a.fighters.find((f) => f.index === p.slot)?.team === t)
+        .map((p) => p.name)
+        .join(', ');
+    const title = win < 0 ? 'EMPATE!' : `Time ${TEAM_NAMES[win]}!`;
+    const color = win < 0 ? '#ffffff' : hex(TEAM_COLORS[win]);
+    const el = h(
+      'div',
+      'overlay matchend',
+      `<div class="confetti"></div><h2>${win < 0 ? 'FIM DE JOGO' : 'CAMPEÃO'}</h2><h1 style="color:${color}">${title}</h1>
+      <div class="board"><div class="row" style="--c:${hex(TEAM_COLORS[0])}"><b>Vermelho</b><span>${names(0)}</span><span class="goals">${this.score[0]}</span></div>
+      <div class="row" style="--c:${hex(TEAM_COLORS[1])}"><b>Azul</b><span>${names(1)}</span><span class="goals">${this.score[1]}</span></div></div>`,
+    );
+    const menu = new MenuList([
+      { label: 'Jogar de novo', action: () => this.onExit('again') },
+      { label: 'Trocar regras', action: () => this.onExit('setup') },
+      { label: 'Menu principal', action: () => this.onExit('menu') },
+    ]);
+    el.appendChild(menu.el);
+    this.overlay = el;
+    this.overlayMenu = menu;
+    uiRoot().appendChild(el);
+    this.d.input.swallow();
   }
 
   // ------------------------------------------------ telas

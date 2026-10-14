@@ -8,6 +8,7 @@ import { DIFFICULTY_NAMES, type Difficulty } from '../ai/Bot';
 // ------------------------------------------------------------
 
 export interface SetupState {
+  mode?: 'briga' | 'futebol';
   mapId: string;
   bestOf: 3 | 5;
   bots: number;
@@ -42,25 +43,31 @@ export class MatchSetup implements Screen {
     };
     this.el = h('div', 'screen setup');
     this.el.innerHTML = `<h1 class="title">Regras da partida</h1>`;
+    const foot = () => st.mode === 'futebol';
     this.list = new MenuList([
-      { label: () => `Mapa: ${mapLabel()}`, change: (d) => (st.mapId = mapIds[(mapIds.indexOf(st.mapId) + d + mapIds.length) % mapIds.length]) },
-      { label: () => `Rodadas: melhor de ${st.bestOf}`, change: () => (st.bestOf = st.bestOf === 3 ? 5 : 3) },
+      { label: () => `Modo: ${foot() ? '⚽ Futebol' : '🥊 Briga'}`, change: () => (st.mode = foot() ? 'briga' : 'futebol') },
+      {
+        label: () => (foot() ? 'Mapa: ⚽ Estádio' : `Mapa: ${mapLabel()}`),
+        change: (d) => (st.mapId = mapIds[(mapIds.indexOf(st.mapId) + d + mapIds.length) % mapIds.length]),
+        disabled: foot,
+      },
+      { label: () => (foot() ? 'Partida: 3 min / 3 gols' : `Rodadas: melhor de ${st.bestOf}`), change: () => (st.bestOf = st.bestOf === 3 ? 5 : 3), disabled: foot },
       { label: () => `Robôs: ${st.bots}`, change: (d) => (st.bots = (st.bots + d + maxBots + 1) % (maxBots + 1)) },
       {
-        label: () => `Dificuldade dos robôs: ${DIFFICULTY_NAMES[st.difficulty]}`,
+        label: () => `Dificuldade: ${DIFFICULTY_NAMES[st.difficulty]}`,
         change: (d) => (st.difficulty = diffs[(diffs.indexOf(st.difficulty) + d + 3) % 3]),
         disabled: () => st.bots === 0,
       },
       {
-        label: 'BRIGAR!',
+        label: () => (foot() ? 'BOLA ROLANDO!' : 'BRIGAR!'),
         action: () => cb.start(),
         disabled: () => humans + st.bots < 2,
         hint: () => (humans + st.bots < 2 ? 'Precisa de pelo menos 2 lutadores — adicione um robô' : `${humans} jogador(es) + ${st.bots} robô(s)`),
       },
       { label: 'Voltar', action: () => cb.back() },
     ]);
-    this.list.focus = 4;
-    if (humans + st.bots < 2) this.list.focus = 2;
+    this.list.focus = 5;
+    if (humans + st.bots < 2) this.list.focus = 3;
     this.list.render();
     this.info = h('div', 'map-info');
     this.el.append(this.list.el, this.info);
@@ -72,7 +79,9 @@ export class MatchSetup implements Screen {
   update() {
     driveMenu(this.input, this.list, () => this.back());
     const st = this.st;
-    if (st.mapId === 'rodizio') this.info.innerHTML = `<b>Rodízio</b><p>Cada rodada acontece num mapa diferente.</p>`;
+    if (st.mode === 'futebol')
+      this.info.innerHTML = `<b>⚽ Futebol de gelatina</b><p>Dois times (Vermelho × Azul) num estádio fechado e uma bola gigante. Soque, chute e cabeceie a bola até o gol do adversário — e bata em quem estiver no caminho!</p><p class="warn">Ninguém sai do jogo: quem desmaia acorda e volta. 3 minutos ou 3 gols; empate vai para o gol de ouro.</p>`;
+    else if (st.mapId === 'rodizio') this.info.innerHTML = `<b>Rodízio</b><p>Cada rodada acontece num mapa diferente.</p>`;
     else {
       const m = MAP_INFO.find((x) => x.id === st.mapId)!;
       this.info.innerHTML = `<b>${m.emoji} ${m.name}</b><p>${m.description}</p><p class="warn">⚠ ${m.hazard}</p>`;

@@ -19,6 +19,8 @@ export interface MatchConfig {
   /** Id do mapa ou 'rodizio' (troca a cada rodada). */
   mapId: string;
   bestOf: 3 | 5;
+  /** 'briga' (padrão: último em pé) ou 'futebol' (dois times, gols). */
+  mode?: 'briga' | 'futebol';
 }
 
 /** Cores que identificam cada jogador na interface. */

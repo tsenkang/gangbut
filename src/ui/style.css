@@ -271,3 +271,8 @@ kbd { background: #ffffff22; border: 1px solid #fff5; }
 .toast.warn { background: #3a0f18ee; }
 .btn.choice { flex-wrap: nowrap; white-space: nowrap; }
 .btn.choice.focus { flex-wrap: wrap; }
+
+/* placar do futebol */
+.chip.foot { font-size: 20px; gap: 10px; }
+.chip.foot .goals { font-family: var(--head); font-size: 26px; min-width: 22px; text-align: center; color: #fff; }
+.hud-top .chips .vs { font-family: var(--head); font-size: 22px; color: #fff; align-self: center; text-shadow: 0 2px 0 #0008; }

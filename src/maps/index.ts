@@ -17,6 +17,7 @@ import { Drawbridge } from './Drawbridge';
 import { Subway } from './Subway';
 import { Grinder } from './Grinder';
 import { Scaffold } from './Scaffold';
+import { Football } from './Football';
 
 // ------------------------------------------------------------
 // Lista de mapas. Para adicionar um mapa novo, importe a classe
@@ -44,4 +45,4 @@ export const MAPS: { id: string; make: () => GameMap }[] = [
   { id: 'andaime', make: () => new Scaffold() },
 ];
 
-export const makeMap = (id: string) => (MAPS.find((m) => m.id === id) ?? MAPS[0]).make();
+export const makeMap = (id: string) => (id === 'futebol' ? new Football() : (MAPS.find((m) => m.id === id) ?? MAPS[0]).make());

@@ -55,6 +55,8 @@ export class Arena implements ArenaApi {
   onAnnounce: (text: string, cls?: string) => void = () => {};
   /** Liga/desliga perigos (desligado na contagem regressiva). */
   hazardsOn = false;
+  /** Desmaiar demais tira do jogo? (no futebol, não: acorda e volta) */
+  koOut = true;
   /** Multiplicador de dano (morte súbita = 2). */
   damageMult = 1;
   private lastPopAt = -9;
@@ -290,7 +292,7 @@ export class Arena implements ArenaApi {
         let kind: DeathKind | 'ko' = this.map.deathOf(f);
         if (kind === 'none') kind = this.map.deathAt(f.pos('chest'));
         if (kind === 'none') kind = this.map.deathAt(f.pos('pelvis'));
-        if (kind === 'none' && f.koTotal > 22) kind = 'ko';
+        if (kind === 'none' && this.koOut && f.koTotal > 22) kind = 'ko';
         if (kind !== 'none') this.eliminate(f, kind);
       } else {
         // Some do mundo depois de um tempinho (ou se cair muito).
@@ -354,6 +356,7 @@ export class Arena implements ArenaApi {
       if (f.alive && (f.ko || f.dizzy > 70)) this.effects.halo(f.skin.parts.head.position, this.time, f.ko ? 3 : 2);
     }
     // Fim de rodada: a câmera chega pertinho de quem está comemorando
+    pts.push(...this.map.focusPoints());
     const champ = this.map.id === 'saguao' ? undefined : this.fighters.find((f) => f.celebrating && !f.removed);
     this.rig.closeUp = !!champ;
     this.rig.update(dt, champ ? [champ.pos('chest')] : pts);

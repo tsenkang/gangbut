@@ -37,6 +37,15 @@ export class Hud {
     this.top.innerHTML = `<div class="round">Rodada ${round} · melhor de ${bestOf} · ${mapName}</div><div class="chips">${chips}</div><div class="clock ${t <= 10 ? 'hurry' : ''}">${mm}:${ss}</div>`;
   }
 
+  /** Placar do futebol: Vermelho x Azul + relógio. */
+  setFootball(score: number[], time: number, golden: boolean, toWin: number) {
+    const t = Math.max(0, Math.ceil(time));
+    const mm = Math.floor(t / 60);
+    const ss = String(t % 60).padStart(2, '0');
+    const team = (i: number, name: string, c: string) => `<div class="chip foot" style="--c:${c}"><b>${name}</b><span class="goals">${score[i]}</span></div>`;
+    this.top.innerHTML = `<div class="round">⚽ Futebol · primeiro a ${toWin} gols</div><div class="chips">${team(0, 'Vermelho', '#ff4d5e')}<span class="vs">×</span>${team(1, 'Azul', '#3a86ff')}</div><div class="clock ${golden || t <= 10 ? 'hurry' : ''}">${golden ? 'GOL DE OURO' : `${mm}:${ss}`}</div>`;
+  }
+
   /** Mensagem grande no centro ("3", "BRIGA!", "MORTE SÚBITA!"). */
   big(text: string, cls = '', ms = 900) {
     this.center.innerHTML = '';

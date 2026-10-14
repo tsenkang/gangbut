@@ -118,7 +118,9 @@ export class Bot implements InputSource {
   }
 
   private enemies() {
-    return this.arena.fighters.filter((x) => x !== this.fighter && x.alive && !x.removed);
+    const me = this.fighter;
+    // no futebol, colega de time não é alvo
+    return this.arena.fighters.filter((x) => x !== me && x.alive && !x.removed && (me.team < 0 || x.team !== me.team));
   }
 
   /** Tem chão nesse ponto? (raio para baixo — e não vale água, lava ou trilho) */
@@ -207,6 +209,8 @@ export class Bot implements InputSource {
     } else if (this.mode === 'grab' && this.modeTime > 3) this.mode = 'chase';
     else if (this.mode !== 'grab' && this.mode !== 'carry') this.mode = 'chase';
     if (this.mode === 'carry' && !holdingFoe) this.mode = 'chase';
+    // Futebol: só larga a bola para agarrar alguém desmaiado bem do lado (o brigão agarra à vontade)
+    if (this.mode === 'grab' && f.role !== 'brigão' && this.arena.map.botObjective(f) && !(best && best.ko && best.pos('chest').distanceTo(me) < 2)) this.mode = 'chase';
 
     // Um pouco de erro na mira (robô fácil anda meio torto)
     this.aimNoise = (Math.random() * 2 - 1) * this.p.aimError;
@@ -394,6 +398,40 @@ export class Bot implements InputSource {
       o.grabL = o.grabR = false;
       this.wantDir.copy(center).sub(me).setY(0).normalize();
       if (this.modeTime > 0.8) this.mode = 'chase';
+      this.avoidEdge(me);
+      return;
+    }
+
+    // Objetivo do mapa (futebol: ir na bola, chutar para o gol, defender)
+    const obj = this.mode !== 'grab' ? this.arena.map.botObjective(f) : null;
+    if (obj) {
+      o.grabL = o.grabR = false;
+      o.armY = 0;
+      const d = obj.to.clone().sub(me).setY(0);
+      this.wantDir.copy(d.lengthSq() > 0.09 ? d.normalize() : d.set(0, 0, 0));
+      this.punchTimer -= dt;
+      if (this.punchTimer <= 0) {
+        if (obj.strike) {
+          // bola na frente: soco, cabeçada ou voadora na bola
+          this.punchTimer = (1 / this.p.punchRate) * (0.5 + Math.random() * 0.5);
+          const r = Math.random();
+          if (r < 0.15 && f.grounded && this.difficulty !== 'facil') o.jump = true;
+          else if (r < 0.3) o.headbutt = true;
+          else {
+            this.toggle = !this.toggle;
+            if (this.toggle) o.punchL = true;
+            else o.punchR = true;
+          }
+        } else if (dist < 1.5) {
+          // adversário no caminho: tira ele da frente
+          this.punchTimer = (1 / this.p.punchRate) * (0.7 + Math.random() * 0.6);
+          this.toggle = !this.toggle;
+          if (this.toggle) o.punchL = true;
+          else o.punchR = true;
+        }
+      }
+      // voadora: no ar, aperta soco
+      if (!f.grounded && f.airTime > 0.12 && f.airTime < 0.2) o.punchL = true;
       this.avoidEdge(me);
       return;
     }
