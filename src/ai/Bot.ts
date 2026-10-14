@@ -185,7 +185,7 @@ export class Bot implements InputSource {
     const center = this.arena.map.safeSpot(me);
 
     // ----- sendo segurado: aperta botões para escapar
-    if (f.grabbedBy > 0) {
+    if (f.grabbedBy > 0 || f.seizedBy) {
       this.escapeTimer -= dt;
       if (this.escapeTimer <= 0) {
         this.escapeTimer = 1 / this.p.escapeRate;

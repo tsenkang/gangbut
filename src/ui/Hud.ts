@@ -97,6 +97,7 @@ export class Hud {
     if (f.downT > 0) return 'Levou um tombo! Levantando...';
     if (f.liftedBy) return `Te ergueram! Aperte ${L.jump} sem parar!`;
     if (f.lifting) return `${L.punch.split(' / ')[0]} ou solte ${L.grab}: ARREMESSAR!`;
+    if (f.seizedBy) return `O ${f.seizedBy} te pegou! Aperte ${L.jump} sem parar!`;
     if (f.grabbedBy > 0) return `Te pegaram! Aperte ${L.jump} sem parar!`;
     const holdingFoe = [f.hands.L, f.hands.R].some((hd) => hd.holding() && hd.targetInfo?.kind === 'fighter');
     const holdingThing = [f.hands.L, f.hands.R].some((hd) => hd.holding() && hd.targetInfo?.kind === 'prop');

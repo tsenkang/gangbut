@@ -19,7 +19,7 @@ Recomendado: Chrome ou Edge (melhor suporte a controles e vibração).
 
 - `npm run build` gera a versão final em `dist/`.
 - Atalho para ver uma partida só de robôs: `http://localhost:5173/?demo=telhado`
-  (também `fabrica`, `rodagigante`, `trem`, `incinerador`, `vigas`, `demolicao`, `elevadores`, `farol`, `caminhoes`, `teleferico`, `ventiladores` ou `rodizio`).
+  (também `fabrica`, `rodagigante`, `trem`, `incinerador`, `vigas`, `demolicao`, `elevadores`, `farol`, `caminhoes`, `teleferico`, `ventiladores`, `barco` ou `rodizio`).
 
 ## Como jogar
 
@@ -97,6 +97,7 @@ personagem e cor. Para criar uma nova, veja `src/characters/Costumes.ts`.
 | 🚚 Caminhões | Briga em cima de dois caminhões de baú que se afastam e encostam; placas passam por cima |
 | 🚡 Teleférico | Duas cabines vão e voltam entre estações nas montanhas e se cruzam no meio |
 | 🌀 Ventiladores | Terraço com ventiladores gigantes no chão: a grade pisca e joga quem está em cima lá no alto |
+| 🦈 Barco de Pesca | O barco balança no mar; tubarões pulam no convés, mordem alguém e tentam arrastar para o mar (aperte botões ou soquem o tubarão 3 vezes para soltar) |
 
 ## Como adicionar um mapa novo
 

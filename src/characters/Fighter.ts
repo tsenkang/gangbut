@@ -113,6 +113,8 @@ export class Fighter {
   pullT = -1;
   escape = 0;
   grabbedBy = 0;
+  /** Algum perigo do mapa me agarrou (ex.: tubarão)? Nome dele, para a dica. */
+  seizedBy: string | null = null;
 
   input: ControlState = emptyControl();
   prev: ControlState = emptyControl();
@@ -717,7 +719,7 @@ export class Fighter {
     // Batida forte (queda, parede): muda brusca de velocidade.
     const v = this.vel('chest');
     const dv = v.distanceTo(this.prevVel);
-    if (this.impactGrace <= 0 && dv > 11 && this.alive) {
+    if (this.impactGrace <= 0 && !this.seizedBy && dv > 11 && this.alive) {
       const dmg = (dv - 11) * 6;
       env.onHit(null, this, dmg, this.pos('chest'), this.prevVel.clone().normalize().negate(), 'fall');
     }
@@ -920,7 +922,7 @@ export class Fighter {
 
     // ----- pernas: passinhos curtos, com as pernas um pouco abertas
     const legAmp = this.grounded ? 0.7 * spd : 0.25;
-    const held = this.grabbedBy > 0 && !this.grounded;
+    const held = (this.grabbedBy > 0 || !!this.seizedBy) && !this.grounded;
     for (const [side, sx, ph] of [
       ['L', 1, 0],
       ['R', -1, Math.PI],
@@ -1016,7 +1018,7 @@ export class Fighter {
         upper = DOWN.clone().addScaledVector(fwd, 0.5).addScaledVector(sideV, -0.3);
         lower = UP.clone().addScaledVector(fwd, 0.6).addScaledVector(sideV, -0.4);
         str = 0.4;
-      } else if (this.grabbedBy > 0) {
+      } else if (this.grabbedBy > 0 || this.seizedBy) {
         // Sendo carregado: se debate
         upper = UP.clone().addScaledVector(sideV, 0.6).addScaledVector(fwd, Math.sin(t * 15 + ph) * 0.8);
         lower = upper.clone();
@@ -1199,7 +1201,7 @@ export class Fighter {
     if (this.hurtT > 0) eyeScale = 0.35;
     if (ko) eyeScale = 1;
     for (const e of f.eyes) e.scale.y = eyeScale;
-    const shout = ko || this.hurtT > 0 || this.screamT > 0.8 || this.headbutt.t >= 0 || this.celebrating || this.grabbedBy > 0;
+    const shout = ko || this.hurtT > 0 || this.screamT > 0.8 || this.headbutt.t >= 0 || this.celebrating || this.grabbedBy > 0 || !!this.seizedBy;
     f.mouth.visible = !shout && f.smile;
     f.mouthO.visible = shout;
 
