@@ -8,6 +8,9 @@ import { Girders } from './Girders';
 import { Demolition } from './Demolition';
 import { Elevators } from './Elevators';
 import { Lighthouse } from './Lighthouse';
+import { Trucks } from './Trucks';
+import { CableCars } from './CableCars';
+import { Vents } from './Vents';
 
 // ------------------------------------------------------------
 // Lista de mapas. Para adicionar um mapa novo, importe a classe
@@ -24,6 +27,9 @@ export const MAPS: { id: string; make: () => GameMap }[] = [
   { id: 'demolicao', make: () => new Demolition() },
   { id: 'elevadores', make: () => new Elevators() },
   { id: 'farol', make: () => new Lighthouse() },
+  { id: 'caminhoes', make: () => new Trucks() },
+  { id: 'teleferico', make: () => new CableCars() },
+  { id: 'ventiladores', make: () => new Vents() },
 ];
 
 export const makeMap = (id: string) => (MAPS.find((m) => m.id === id) ?? MAPS[0]).make();

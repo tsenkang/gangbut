@@ -45,6 +45,10 @@ export class Bot implements InputSource {
   p: BotParams;
   fighter!: Fighter;
   private out = emptyControl();
+  /** Saltando um vão: tempo restante e direção (não vira para trás no meio do pulo). */
+  private leapT = 0;
+  private leapDir = new THREE.Vector3();
+  private leapJumped = false;
   private think = Math.random() * 0.3;
   private mode: Mode = 'chase';
   private target: Fighter | null = null;
@@ -121,6 +125,12 @@ export class Bot implements InputSource {
     return !!hit;
   }
 
+  /** Tem chão para pousar nesse ponto, mais ou menos na minha altura? */
+  private landingAt(p: THREE.Vector3) {
+    const hit = this.arena.physics.rayDown(new THREE.Vector3(p.x, p.y + 1.2, p.z), 2.6, this.fighter.ragdoll.bit);
+    return !!hit;
+  }
+
   private decide() {
     const f = this.fighter;
     const me = f.pos('chest');
@@ -172,7 +182,7 @@ export class Bot implements InputSource {
     const f = this.fighter;
     const o = this.out;
     const me = f.pos('chest');
-    const center = this.arena.map.camera.center;
+    const center = this.arena.map.safeSpot(me);
 
     // ----- sendo segurado: aperta botões para escapar
     if (f.grabbedBy > 0) {
@@ -181,6 +191,25 @@ export class Bot implements InputSource {
         this.escapeTimer = 1 / this.p.escapeRate;
         o.jump = true;
       }
+    }
+
+    // ----- saltando um vão: corre reto, pula e segura a direção até pousar
+    if (this.leapT > 0) {
+      this.leapT -= dt;
+      this.wantDir.copy(this.leapDir);
+      this.dir.copy(this.leapDir); // sem suavizar: vai com tudo
+      if (f.grounded && this.leapT < 0.87 && !this.leapJumped) {
+        o.jump = true;
+        this.leapJumped = true;
+      }
+      // pousou do outro lado (ou desistiu): volta ao normal
+      if (this.leapJumped && f.grounded && this.leapT < 0.45) this.leapT = 0;
+      if (!f.grounded && f.vel('pelvis').y < -4) {
+        // caiu curto: tenta se agarrar na beirada
+        o.grabL = o.grabR = true;
+        o.armY = 0.6;
+      }
+      return;
     }
 
     // ----- pendurado numa borda: escala (ou segura firme)
@@ -343,7 +372,18 @@ export class Bot implements InputSource {
     const near = me.clone().addScaledVector(dir, 0.7);
     const ahead = me.clone().addScaledVector(dir, 1.3);
     if (this.careful && (!this.groundAt(near) || !this.groundAt(ahead))) {
-      const center = this.arena.map.camera.center;
+      // Vão curto com chão do outro lado e o alvo lá: pula!
+      const f = this.fighter;
+      const land = me.clone().addScaledVector(dir, 2.3);
+      const chasing = this.mode === 'chase' || this.mode === 'grab';
+      if (chasing && this.arena.map.botLeaps && this.difficulty !== 'facil' && f.grounded && this.groundAt(near) && this.landingAt(land) && this.landingAt(me.clone().addScaledVector(dir, 2.8))) {
+        // dá uma corridinha e pula (o pulo sai no começo do salto)
+        this.leapT = 0.95;
+        this.leapJumped = false;
+        this.leapDir.copy(dir);
+        return;
+      }
+      const center = this.arena.map.safeSpot(me);
       this.wantDir.copy(center).sub(me).setY(0).normalize();
     }
   }

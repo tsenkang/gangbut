@@ -19,7 +19,7 @@ Recomendado: Chrome ou Edge (melhor suporte a controles e vibração).
 
 - `npm run build` gera a versão final em `dist/`.
 - Atalho para ver uma partida só de robôs: `http://localhost:5173/?demo=telhado`
-  (também `fabrica`, `rodagigante`, `trem`, `incinerador`, `vigas`, `demolicao`, `elevadores`, `farol` ou `rodizio`).
+  (também `fabrica`, `rodagigante`, `trem`, `incinerador`, `vigas`, `demolicao`, `elevadores`, `farol`, `caminhoes`, `teleferico`, `ventiladores` ou `rodizio`).
 
 ## Como jogar
 
@@ -89,6 +89,9 @@ personagem e cor. Para criar uma nova, veja `src/characters/Costumes.ts`.
 | 💥 Demolição | Último andar de um prédio sendo derrubado: a bola de demolição balança e muda de faixa |
 | 🛗 Elevadores | Três elevadores de obra subindo e descendo; lá no alto a viga raspa a cabeça |
 | 🌊 Farol | Varanda redonda num farol, na tempestade: guarda-corpo com buracos e rajadas de vento |
+| 🚚 Caminhões | Briga em cima de dois caminhões de baú que se afastam e encostam; placas passam por cima |
+| 🚡 Teleférico | Duas cabines vão e voltam entre estações nas montanhas e se cruzam no meio |
+| 🌀 Ventiladores | Terraço com ventiladores gigantes no chão: a grade pisca e joga quem está em cima lá no alto |
 
 ## Como adicionar um mapa novo
 
@@ -129,6 +132,9 @@ personagem e cor. Para criar uma nova, veja `src/characters/Costumes.ts`.
 
 2. Registre em `src/maps/index.ts`:
    `{ id: 'meumapa', make: () => new MeuMapa() },`
+
+Se o meio do mapa for um buraco (ou o chão se mexer), sobrescreva `safeSpot(p)`
+para dizer aos robôs onde fica o chão firme mais perto.
 
 Pronto: ele aparece na tela de regras e no rodízio. Para algo que mata na hora
 (lava, água), sobrescreva `deathAt(p)`.

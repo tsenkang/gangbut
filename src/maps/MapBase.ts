@@ -67,6 +67,8 @@ export abstract class GameMap {
   killY = -12;
   spawns: THREE.Vector3[] = [];
   spawnYaw = 0;
+  /** Os robôs podem pular vãos curtos para alcançar o alvo? */
+  botLeaps = true;
   ctx!: MapContext;
 
   abstract build(): void;
@@ -79,6 +81,15 @@ export abstract class GameMap {
    */
   botAdvice(_p: THREE.Vector3): THREE.Vector3 | null {
     return null;
+  }
+
+  /**
+   * Para onde o robô corre quando se assusta com a beirada: um lugar
+   * firme perto dele. O padrão é o meio do mapa; mapas com buraco no
+   * meio (ou chão que anda) devolvem o lugar seguro mais próximo.
+   */
+  safeSpot(_p: THREE.Vector3): THREE.Vector3 {
+    return this.camera.center;
   }
 
   deathAt(p: THREE.Vector3): DeathKind {

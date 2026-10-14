@@ -222,6 +222,11 @@ export class Demolition extends GameMap {
     for (const m of this.blink) m.visible = on;
   }
 
+  safeSpot(p: THREE.Vector3): THREE.Vector3 {
+    // o meio do mapa é o buraco: vai para o pedaço de laje mais perto
+    return p.x < 1.4 ? new THREE.Vector3(-4.6, 0, 0) : new THREE.Vector3(6.2, 0, 0);
+  }
+
   botAdvice(p: THREE.Vector3): THREE.Vector3 | null {
     // A bola está vindo pela minha faixa: muda para a faixa mais longe dela
     if (this.waitT > 0 || p.y < -1) return null;

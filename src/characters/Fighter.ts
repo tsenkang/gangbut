@@ -101,6 +101,8 @@ export class Fighter {
   grounded = false;
   groundDist = 99;
   groundCollider: RAPIER.Collider | null = null;
+  /** Velocidade do chão embaixo de mim (cabine, elevador, caminhão...). */
+  groundVel = new THREE.Vector3();
   airTime = 0;
   walkPhase = 0;
   speed = 0;
@@ -366,6 +368,10 @@ export class Fighter {
     this.groundCollider = hit ? hit.collider : null;
     // O raio pode acertar o próprio lutador que eu seguro... tudo bem, vira apoio.
     this.grounded = this.groundDist < DIM.hover + 0.3;
+    // Chão que anda (cinemático): ando junto com ele
+    this.groundVel.set(0, 0, 0);
+    const gb = this.grounded && hit ? hit.collider.parent() : null;
+    if (gb && gb.isKinematic()) v3(gb.linvel(), this.groundVel);
   }
 
   private ledgeHand(): Hand | null {
@@ -625,9 +631,12 @@ export class Fighter {
     const chest = this.part('chest');
     const heavy = this.lifting ? 0.55 : this.hands.L.holding() || this.hands.R.holding() ? 0.7 : 1;
     const target = move.clone().multiplyScalar(TUNING.walkSpeed * heavy);
+    // andar é relativo ao chão: em cima de algo que se mexe, vou junto
+    target.x += this.groundVel.x;
+    target.z += this.groundVel.z;
 
     const pv = pel.linvel();
-    this.speed = Math.hypot(pv.x, pv.z);
+    this.speed = Math.hypot(pv.x - this.groundVel.x, pv.z - this.groundVel.z); // relativo ao chão
     this.walkPhase += dt * (2 + this.speed * 3.3); // passinhos curtos e rápidos
 
     if (this.pullT >= 0) {
@@ -672,7 +681,7 @@ export class Fighter {
       target.addScaledVector(this.left(), Math.sin(tt * 2.1) * 1.6 * wobbly);
       target.addScaledVector(this.fwd(), Math.sin(tt * 1.3 + 1) * 0.8 * wobbly);
     }
-    if (this.celebrating) target.set(0, 0, 0);
+    if (this.celebrating) target.set(this.groundVel.x, 0, this.groundVel.z);
     // Mirando em alguém caído e sem andar: dá uns passinhos até ele
     if (this.grabAim && moveMag < 0.15) {
       const d = this.grabAim.clone().sub(this.pos('pelvis')).setY(0);

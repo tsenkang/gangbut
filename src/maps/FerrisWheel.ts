@@ -246,6 +246,15 @@ export class FerrisWheel extends GameMap {
     return body;
   }
 
+  safeSpot(p: THREE.Vector3): THREE.Vector3 {
+    // dentro de uma cabine: fica no meio dela; senão, a plataforma mais perto
+    for (const g of this.gondolas) {
+      const t = g.body.translation();
+      if (Math.abs(p.x - t.x) < GW + 0.2 && p.y > t.y - 0.5 && p.y < t.y + 2.6) return new THREE.Vector3(t.x, t.y, 0);
+    }
+    return new THREE.Vector3(Math.sign(p.x || 1) * 6.4, 0, 0);
+  }
+
   update(dt: number, time: number, arena: ArenaApi) {
     // De vez em quando a roda dispara (e depois volta ao normal)
     this.rushTimer -= dt;

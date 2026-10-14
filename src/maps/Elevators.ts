@@ -34,6 +34,7 @@ export class Elevators extends GameMap {
   hazard = 'Os elevadores não esperam ninguém! E lá no alto a viga raspa a cabeça.';
   music = 'telhado' as const;
   killY = -12;
+  botLeaps = false; // o elevador some debaixo de quem pula
   camera = {
     dir: new THREE.Vector3(0, 0.45, 1),
     minDist: 14,
@@ -181,6 +182,15 @@ export class Elevators extends GameMap {
     const s = Math.sin(t * 0.55 + phase);
     const k = THREE.MathUtils.clamp(s * 1.35, -1, 1); // achatado = paradinha nas pontas
     return LOW + ((k + 1) / 2) * (HIGH - LOW);
+  }
+
+  safeSpot(p: THREE.Vector3): THREE.Vector3 {
+    // em cima de um elevador: fica no meio dele; senão, o andar firme mais perto
+    for (const c of this.cars) {
+      if (Math.abs(p.x - c.x) < CW + 0.2 && p.y > c.y - 0.5 && p.y < c.y + 2.5) return new THREE.Vector3(c.x, c.y, 0);
+    }
+    if (p.y > HIGH - 0.5 && Math.abs(p.x) > 6) return new THREE.Vector3(Math.sign(p.x) * 8.6, HIGH, -0.6);
+    return new THREE.Vector3(Math.sign(p.x || 1) * 8.1, 0, 0);
   }
 
   update(dt: number, time: number, arena: ArenaApi) {
