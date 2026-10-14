@@ -12,7 +12,7 @@ import { grimeTexture } from './City';
 // iluminam tudo de repente. Caiu? Mar bravo.
 // ------------------------------------------------------------
 
-const R = 4.6; // raio da varanda
+const R = 6.6; // raio da varanda
 const TOWER_R = 1.7; // raio da sala da lanterna
 const SEA_Y = -26;
 
@@ -26,11 +26,11 @@ export class Lighthouse extends GameMap {
   killY = -12;
   camera = {
     dir: new THREE.Vector3(0, 0.75, 1),
-    minDist: 12,
-    maxDist: 22,
+    minDist: 14,
+    maxDist: 26,
     fov: 44,
     center: new THREE.Vector3(0, 0.6, 0),
-    bounds: new THREE.Box3(new THREE.Vector3(-3, -1, -3), new THREE.Vector3(3, 3, 3)),
+    bounds: new THREE.Box3(new THREE.Vector3(-4.5, -1, -4.5), new THREE.Vector3(4.5, 3, 4.5)),
   };
 
   private beam!: THREE.Group;
@@ -54,7 +54,7 @@ export class Lighthouse extends GameMap {
       hemiSky: 0x7f93c0,
       hemiGround: 0x1a2030,
       hemiIntensity: 1.3,
-      shadowExtent: 9,
+      shadowExtent: 12,
     });
     this.hemi = hemi;
 
@@ -73,8 +73,8 @@ export class Lighthouse extends GameMap {
 
     // guarda-corpo com buracos (algumas partes faltando)
     const rail = this.material(0x22262d, { roughness: 0.4, metalness: 0.7 });
-    const posts = 24;
-    const missing = new Set([3, 4, 11, 17, 18]); // vãos sem grade (por onde dá para cair)
+    const posts = 34;
+    const missing = new Set([4, 5, 15, 16, 24, 25, 26]); // vãos sem grade (por onde dá para cair)
     for (let i = 0; i < posts; i++) {
       const a = (i / posts) * Math.PI * 2;
       const x = Math.cos(a) * (R - 0.12);
@@ -142,7 +142,7 @@ export class Lighthouse extends GameMap {
 
     // ---------------- torre do farol descendo até o mar (listrada)
     for (let k = 0; k < 6; k++) {
-      const seg = new THREE.Mesh(new THREE.CylinderGeometry(2.6 + k * 0.25, 2.85 + k * 0.25, 4.4, 32), k % 2 ? white : red);
+      const seg = new THREE.Mesh(new THREE.CylinderGeometry(3.6 + k * 0.3, 3.9 + k * 0.3, 4.4, 32), k % 2 ? white : red);
       seg.position.y = -1.2 - 2.2 - k * 4.4;
       this.deco(seg, false);
     }
@@ -179,7 +179,11 @@ export class Lighthouse extends GameMap {
     this.prop('barril', new THREE.Vector3(2.8, 0.5, 1.4), 0x2b5e8a);
     this.prop('caixa', new THREE.Vector3(-2.8, 0.5, -1.4));
 
-    this.spawns = [new THREE.Vector3(-3, 0.05, 1.6), new THREE.Vector3(3, 0.05, 1.6), new THREE.Vector3(-3, 0.05, -1.6), new THREE.Vector3(3, 0.05, -1.6)];
+    // mais caixas e um segundo barril na varanda maior
+    this.prop('caixa', new THREE.Vector3(0, 0.5, 4.6));
+    this.prop('barril', new THREE.Vector3(-4.2, 0.5, -2.8), 0xd95f2b);
+
+    this.spawns = [new THREE.Vector3(-4.2, 0.05, 2.2), new THREE.Vector3(4.2, 0.05, 2.2), new THREE.Vector3(-4.2, 0.05, -2.2), new THREE.Vector3(4.2, 0.05, -2.2)];
   }
 
   update(dt: number, time: number, arena: ArenaApi) {

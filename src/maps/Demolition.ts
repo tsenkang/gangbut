@@ -15,8 +15,8 @@ import type { Fighter } from '../characters/Fighter';
 const PIVOT_Y = 14.5;
 const LEN = 13.3; // comprimento da corrente
 const BALL_R = 1.05;
-const LANES = [-2.4, 0, 2.4]; // faixas (z) por onde a bola passa
-const AMP = 0.78; // abertura do balanço (radianos)
+const LANES = [-3.3, 0, 3.3]; // faixas (z) por onde a bola passa
+const AMP = 0.96; // abertura do balanço (radianos)
 
 export class Demolition extends GameMap {
   id = 'demolicao';
@@ -28,11 +28,11 @@ export class Demolition extends GameMap {
   killY = -10;
   camera = {
     dir: new THREE.Vector3(0, 0.7, 1),
-    minDist: 12,
-    maxDist: 24,
+    minDist: 14,
+    maxDist: 30,
     fov: 42,
     center: new THREE.Vector3(0, 0.5, 0),
-    bounds: new THREE.Box3(new THREE.Vector3(-7, -1, -3), new THREE.Vector3(7, 3, 3)),
+    bounds: new THREE.Box3(new THREE.Vector3(-9, -1, -4), new THREE.Vector3(9, 3, 4)),
   };
 
   private ball!: RAPIER.RigidBody;
@@ -61,7 +61,7 @@ export class Demolition extends GameMap {
       hemiSky: 0xd8e0ee,
       hemiGround: 0x5a4d40,
       hemiIntensity: 1.3,
-      shadowExtent: 15,
+      shadowExtent: 19,
     });
 
     // ---------------- laje do último andar (com buracos)
@@ -69,10 +69,10 @@ export class Demolition extends GameMap {
     const side = this.material(0x6e675e, { roughness: 1 });
     // pedaços da laje: [x, z, largura, profundidade]
     const pieces: [number, number, number, number][] = [
-      [-4.6, 0, 5.2, 7.6],
-      [1.4, -2.1, 6.8, 3.4],
-      [1.4, 2.6, 6.8, 2.4],
-      [6.4, 0, 3.2, 7.6],
+      [-6.2, 0, 8.4, 10],
+      [1.4, -2.7, 6.8, 4.6],
+      [1.4, 3.2, 6.8, 3.6],
+      [7.6, 0, 5.6, 10],
       [-0.6, 0.5, 1.2, 0.9], // ilhota no meio do buraco
     ];
     for (const [x, z, w, d] of pieces) {
@@ -85,36 +85,38 @@ export class Demolition extends GameMap {
     for (let i = 0; i < 26; i++) {
       const m = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.6 + Math.random() * 0.7, 5), rebar);
       const onHole = i < 14;
-      m.position.set(onHole ? -1.9 + Math.random() * 6.4 : (Math.random() < 0.5 ? -7.2 : 8), -0.1, onHole ? (Math.random() < 0.5 ? -0.4 : 1.4) : (Math.random() - 0.5) * 7);
+      m.position.set(onHole ? -1.9 + Math.random() * 6.4 : (Math.random() < 0.5 ? -10.4 : 10.4), -0.1, onHole ? (Math.random() < 0.5 ? -0.4 : 1.4) : (Math.random() - 0.5) * 9.6);
       m.rotation.set((Math.random() - 0.5) * 1.6, 0, (Math.random() - 0.5) * 1.6);
       this.deco(m, false);
     }
     // pedaços de parede que sobraram (dá para agarrar e subir)
     const brick = new THREE.MeshStandardMaterial({ map: grimeTexture('#9a5a44', [2, 1], { tiles: 6, dark: 'rgba(0,0,0,0.25)' }), roughness: 1 });
-    this.box({ x: -5.6, y: 0.9, z: -3.6 }, { x: 3.2, y: 1.8, z: 0.35 }, brick);
-    this.box({ x: -6.9, y: 0.6, z: -1.8 }, { x: 0.35, y: 1.2, z: 3.4 }, brick);
-    this.box({ x: 6.6, y: 1.3, z: -3.6 }, { x: 2.4, y: 2.6, z: 0.35 }, brick);
+    this.box({ x: -8.4, y: 0.9, z: -4.8 }, { x: 3.2, y: 1.8, z: 0.35 }, brick);
+    this.box({ x: -10.1, y: 0.6, z: -2.8 }, { x: 0.35, y: 1.2, z: 3.4 }, brick);
+    this.box({ x: -4, y: 0.7, z: 3.4 }, { x: 0.35, y: 1.4, z: 2 }, brick);
+    this.box({ x: 8.6, y: 1.3, z: -4.8 }, { x: 2.4, y: 2.6, z: 0.35 }, brick);
     // pilar de concreto com o andar de cima destruído (lugar alto)
-    this.box({ x: 6.5, y: 1.1, z: 2.4 }, { x: 1.4, y: 2.2, z: 1.4 }, side);
+    this.box({ x: 8.8, y: 1.1, z: 3.4 }, { x: 1.4, y: 2.2, z: 1.4 }, side);
+    this.box({ x: -8.6, y: 1.6, z: 3.6 }, { x: 1.2, y: 3.2, z: 1.2 }, side);
     // escombros (só desenho)
     for (let i = 0; i < 16; i++) {
       const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.15 + Math.random() * 0.25), side);
-      r.position.set((Math.random() - 0.5) * 13, 0.1, (Math.random() - 0.5) * 7);
+      r.position.set((Math.random() - 0.5) * 19, 0.1, (Math.random() - 0.5) * 9);
       if (r.position.x > -1.9 && r.position.x < 4.8 && r.position.z > -0.5 && r.position.z < 1.5) continue;
       this.deco(r);
     }
     // tapume com listras de perigo
     const stripes = new THREE.MeshStandardMaterial({ map: hazardStripes([6, 1]) });
-    this.box({ x: 0, y: 0.45, z: -4.2 }, { x: 15, y: 0.9, z: 0.08 }, stripes, { collide: false });
+    this.box({ x: 0, y: 0.45, z: -5.4 }, { x: 21, y: 0.9, z: 0.08 }, stripes, { collide: false });
     // prédio que sobra embaixo (descendo para a neblina)
     const facade = this.material(0x7a7068, { roughness: 1 });
-    const below = new THREE.Mesh(new THREE.BoxGeometry(15, 50, 7.6), facade);
-    below.position.set(0.8, -26.3, 0);
+    const below = new THREE.Mesh(new THREE.BoxGeometry(21, 50, 10), facade);
+    below.position.set(0, -26.3, 0);
     this.deco(below, false);
     for (let f = 0; f < 10; f++)
-      for (let k = 0; k < 6; k++) {
+      for (let k = 0; k < 8; k++) {
         const win = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.6), this.material(0x2a2a30));
-        win.position.set(-5.2 + k * 2.4, -3 - f * 3.4, 3.82);
+        win.position.set(-8.4 + k * 2.4, -3 - f * 3.4, 5.02);
         this.deco(win, false);
       }
 
@@ -153,11 +155,12 @@ export class Demolition extends GameMap {
       [-26, 0.6],
     ]);
 
-    this.prop('caixa', new THREE.Vector3(-3.5, 0.5, 2.5), 0x8d8d8d);
-    this.prop('caixa', new THREE.Vector3(5.2, 0.5, -1.5), 0x8d8d8d);
-    this.prop('barril', new THREE.Vector3(-5.8, 0.5, 1.5), 0xd95f2b);
+    this.prop('caixa', new THREE.Vector3(-5, 0.5, 3), 0x8d8d8d);
+    this.prop('caixa', new THREE.Vector3(7, 0.5, -1.5), 0x8d8d8d);
+    this.prop('barril', new THREE.Vector3(-8, 0.5, 1.5), 0xd95f2b);
+    this.prop('caixa', new THREE.Vector3(2.5, 0.5, -3.8), 0x8d8d8d);
 
-    this.spawns = [new THREE.Vector3(-5, 0.05, 2), new THREE.Vector3(6, 0.05, -1), new THREE.Vector3(-3.5, 0.05, -2.2), new THREE.Vector3(2, 0.05, -2.4)];
+    this.spawns = [new THREE.Vector3(-7, 0.05, 2.5), new THREE.Vector3(8, 0.05, -1.5), new THREE.Vector3(-5, 0.05, -3), new THREE.Vector3(2, 0.05, -3.2)];
   }
 
   /** Posição da bola para um ângulo do balanço. */
@@ -224,16 +227,16 @@ export class Demolition extends GameMap {
 
   safeSpot(p: THREE.Vector3): THREE.Vector3 {
     // o meio do mapa é o buraco: vai para o pedaço de laje mais perto
-    return p.x < 1.4 ? new THREE.Vector3(-4.6, 0, 0) : new THREE.Vector3(6.2, 0, 0);
+    return p.x < 1.4 ? new THREE.Vector3(-6.2, 0, 0) : new THREE.Vector3(7.6, 0, 0);
   }
 
   botAdvice(p: THREE.Vector3): THREE.Vector3 | null {
     // A bola está vindo pela minha faixa: muda para a faixa mais longe dela
     if (this.waitT > 0 || p.y < -1) return null;
-    if (Math.abs(p.z - this.laneZ) > 1.7) return null;
+    if (Math.abs(p.z - this.laneZ) > 1.9) return null;
     const ahead = (p.x - this.ballPos.x) * Math.sign(this.ballVel.x || 1);
     if (ahead < -1 || ahead > 9) return null;
-    const far = this.laneZ > 0 ? -2.6 : 2.6;
-    return new THREE.Vector3(THREE.MathUtils.clamp(p.x, -6, 6.8), 0, far);
+    const far = this.laneZ > 0 ? -3.6 : 3.6;
+    return new THREE.Vector3(THREE.MathUtils.clamp(p.x, -9, 9.5), 0, far);
   }
 }

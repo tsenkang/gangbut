@@ -11,9 +11,11 @@ import { cityBackdrop, grimeTexture, hazeBelow } from './City';
 // ------------------------------------------------------------
 
 const FANS: [number, number][] = [
-  [-4.2, -0.7],
+  [-8, 0.7],
+  [-4, -0.7],
   [0, 0.7],
-  [4.2, -0.7],
+  [4, -0.7],
+  [8, 0.7],
 ];
 const FAN_R = 1.35;
 
@@ -35,11 +37,11 @@ export class Vents extends GameMap {
   killY = -10;
   camera = {
     dir: new THREE.Vector3(0, 0.72, 1),
-    minDist: 12,
-    maxDist: 25,
+    minDist: 14,
+    maxDist: 30,
     fov: 42,
     center: new THREE.Vector3(0, 0.8, 0),
-    bounds: new THREE.Box3(new THREE.Vector3(-6, -1, -3), new THREE.Vector3(6, 6, 3)),
+    bounds: new THREE.Box3(new THREE.Vector3(-8.5, -1, -4), new THREE.Vector3(8.5, 6, 4)),
   };
 
   private fans: Fan[] = [];
@@ -59,24 +61,22 @@ export class Vents extends GameMap {
       hemiSky: 0xd4dcec,
       hemiGround: 0x584c44,
       hemiIntensity: 1.3,
-      shadowExtent: 14,
+      shadowExtent: 18,
     });
 
     // ---------------- terraço (com buracos redondos onde ficam os ventiladores)
     const roof = new THREE.MeshStandardMaterial({ map: grimeTexture('#7f7a73', [3, 2], { tiles: 6, cracks: true }), roughness: 1 });
     // o piso é feito de tiras em volta dos buracos (cada ventilador tem seu poço)
-    const W = 7.2;
-    const D = 4.4;
-    this.box({ x: 0, y: -0.3, z: -3.3 }, { x: W * 2, y: 0.6, z: 2.2 }, roof); // faixa de trás
-    this.box({ x: 0, y: -0.3, z: 3.3 }, { x: W * 2, y: 0.6, z: 2.2 }, roof); // faixa da frente
+    const W = 10.6; // meia largura do terraço
+    const D = 4.4; // faixa do meio (onde ficam os poços)
+    const S = 3.2; // faixas de trás e da frente
+    this.box({ x: 0, y: -0.3, z: -(D + S) / 2 }, { x: W * 2, y: 0.6, z: S }, roof); // faixa de trás
+    this.box({ x: 0, y: -0.3, z: (D + S) / 2 }, { x: W * 2, y: 0.6, z: S }, roof); // faixa da frente
     // entre os poços (meio)
-    for (const [x0, x1] of [
-      [-W, -5.6],
-      [-2.8, -1.4],
-      [1.4, 2.8],
-      [5.6, W],
-    ]) {
-      this.box({ x: (x0 + x1) / 2, y: -0.3, z: 0 }, { x: x1 - x0, y: 0.6, z: D }, roof);
+    const edges = [-W, ...FANS.flatMap(([x]) => [x - 1.4, x + 1.4]), W];
+    for (let i = 0; i < edges.length; i += 2) {
+      const [x0, x1] = [edges[i], edges[i + 1]];
+      if (x1 - x0 > 0.01) this.box({ x: (x0 + x1) / 2, y: -0.3, z: 0 }, { x: x1 - x0, y: 0.6, z: D }, roof);
     }
     // laterais dos poços (só onde não tem ventilador)
     for (const [x, z] of FANS) {
@@ -142,14 +142,16 @@ export class Vents extends GameMap {
 
     // ---------------- caixas de ar-condicionado, dutos e mureta baixa no fundo
     const metal = this.material(0xb9bec5, { metalness: 0.5, roughness: 0.4 });
-    this.box({ x: -5.9, y: 0.6, z: -3.4 }, { x: 2, y: 1.2, z: 1.4 }, metal);
-    this.box({ x: 6.2, y: 0.9, z: 3.5 }, { x: 1.4, y: 1.8, z: 1.4 }, metal);
-    this.box({ x: 2.2, y: 0.35, z: -3.5 }, { x: 3.6, y: 0.7, z: 0.8 }, this.material(0x7d8590, { metalness: 0.5 }));
-    this.box({ x: 0, y: 0.4, z: -4.55 }, { x: W * 2, y: 0.8, z: 0.3 }, this.material(0x6e675e)); // mureta de trás
-    // chaminé alta (dá para agarrar e subir)
-    this.box({ x: -2.6, y: 2, z: -3.7 }, { x: 0.9, y: 4, z: 0.9 }, this.material(0x8a4b3a));
+    this.box({ x: -8.4, y: 0.6, z: -4.2 }, { x: 2, y: 1.2, z: 1.4 }, metal);
+    this.box({ x: 9.2, y: 0.9, z: 4.3 }, { x: 1.4, y: 1.8, z: 1.4 }, metal);
+    this.box({ x: 2.2, y: 0.35, z: -4.3 }, { x: 3.6, y: 0.7, z: 0.8 }, this.material(0x7d8590, { metalness: 0.5 }));
+    this.box({ x: -4.5, y: 0.5, z: 4.4 }, { x: 1.6, y: 1, z: 1.2 }, metal);
+    this.box({ x: 0, y: 0.4, z: -(D / 2 + S) + 0.15 }, { x: W * 2, y: 0.8, z: 0.3 }, this.material(0x6e675e)); // mureta de trás
+    // chaminés altas (dá para agarrar e subir)
+    this.box({ x: -2.6, y: 2, z: -4.6 }, { x: 0.9, y: 4, z: 0.9 }, this.material(0x8a4b3a));
+    this.box({ x: 6.4, y: 2.5, z: -4.6 }, { x: 0.9, y: 5, z: 0.9 }, this.material(0x8a4b3a));
     // prédio da fábrica descendo para a neblina
-    const facade = new THREE.Mesh(new THREE.BoxGeometry(W * 2, 50, D + 4), this.material(0x6f6560, { roughness: 1 }));
+    const facade = new THREE.Mesh(new THREE.BoxGeometry(W * 2, 50, D + S * 2), this.material(0x6f6560, { roughness: 1 }));
     facade.position.set(0, -25.6, 0);
     this.deco(facade, false);
 
@@ -164,7 +166,8 @@ export class Vents extends GameMap {
     this.prop('barril', new THREE.Vector3(3, 0.5, 3.2), 0xd95f2b);
     this.prop('bola', new THREE.Vector3(-6, 0.6, 1.5), 0xffb703);
 
-    this.spawns = [new THREE.Vector3(-6.2, 0.05, 1.5), new THREE.Vector3(6.3, 0.05, 1.2), new THREE.Vector3(-2, 0.05, -3.2), new THREE.Vector3(2.2, 0.05, 3.2)];
+    this.prop('caixa', new THREE.Vector3(7, 0.5, -3.4));
+    this.spawns = [new THREE.Vector3(-6, 0.05, 3.6), new THREE.Vector3(6, 0.05, 3.6), new THREE.Vector3(-6, 0.05, -3.5), new THREE.Vector3(6, 0.05, -3.2)];
   }
 
   update(dt: number, time: number, arena: ArenaApi) {
@@ -224,6 +227,6 @@ export class Vents extends GameMap {
     if (this.active < 0 || this.phase === 'idle' || p.y < -1) return null;
     const f = this.fans[this.active];
     if (Math.hypot(p.x - f.x, p.z - f.z) > FAN_R + 0.8) return null;
-    return new THREE.Vector3(f.x, 0, f.z < 0 ? 3.2 : -3.2);
+    return new THREE.Vector3(f.x, 0, f.z < 0 ? 4 : -4);
   }
 }

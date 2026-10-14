@@ -13,8 +13,8 @@ import type { Fighter } from '../characters/Fighter';
 // ------------------------------------------------------------
 
 const SPEED = 22; // velocidade do cenário passando
-const HALF_L = 5; // meio comprimento do baú
-const HALF_W = 1.25; // meia largura do baú
+const HALF_L = 7.5; // meio comprimento do baú (carreta comprida)
+const HALF_W = 1.5; // meia largura do baú
 const ROAD_Y = -3.6;
 
 interface Truck {
@@ -37,7 +37,7 @@ export class Trucks extends GameMap {
     maxDist: 25,
     fov: 42,
     center: new THREE.Vector3(0, 0.4, 0),
-    bounds: new THREE.Box3(new THREE.Vector3(-5, -1, -2), new THREE.Vector3(5, 3, 2)),
+    bounds: new THREE.Box3(new THREE.Vector3(-7, -1, -2.6), new THREE.Vector3(7, 3, 2.6)),
   };
 
   private trucks: Truck[] = [];
@@ -182,8 +182,10 @@ export class Trucks extends GameMap {
 
     this.prop('caixa', new THREE.Vector3(-2, 0.5, -2.3));
     this.prop('caixa', new THREE.Vector3(2.5, 0.5, 2.3), 0x9c6b3a);
+    this.prop('barril', new THREE.Vector3(-5.5, 0.5, 2.3), 0x2b5e8a);
+    this.prop('caixa', new THREE.Vector3(5.8, 0.5, -2.3));
 
-    this.spawns = [new THREE.Vector3(-3, 0.05, -2.3), new THREE.Vector3(3, 0.05, -2.3), new THREE.Vector3(-3, 0.05, 2.3), new THREE.Vector3(3, 0.05, 2.3)];
+    this.spawns = [new THREE.Vector3(-4.5, 0.05, -2.3), new THREE.Vector3(4.5, 0.05, -2.3), new THREE.Vector3(-4.5, 0.05, 2.3), new THREE.Vector3(4.5, 0.05, 2.3)];
   }
 
   private truckMesh(color: number, side: number) {
@@ -237,7 +239,7 @@ export class Trucks extends GameMap {
     this.clock += dt;
     const t = this.clock;
     // Os caminhões se afastam e encostam (meia distância entre 1,3 e 2,6)
-    const half = 1.95 + Math.sin(t * 0.5) * 0.65 + Math.sin(t * 1.3) * 0.08;
+    const half = 2.3 + Math.sin(t * 0.5) * 0.65 + Math.sin(t * 1.3) * 0.08;
     for (const tr of this.trucks) {
       tr.z = tr.side * half;
       const sway = Math.sin(t * 2.1 + tr.side) * 0.02;
@@ -287,7 +289,7 @@ export class Trucks extends GameMap {
   safeSpot(p: THREE.Vector3): THREE.Vector3 {
     // o meio do baú em que estou (o mais perto)
     const tr = this.trucks.reduce((a, b) => (Math.abs(b.z - p.z) < Math.abs(a.z - p.z) ? b : a));
-    return new THREE.Vector3(THREE.MathUtils.clamp(p.x, -3, 3), 0, tr.z);
+    return new THREE.Vector3(THREE.MathUtils.clamp(p.x, -5.5, 5.5), 0, tr.z);
   }
 
   deathAt(p: THREE.Vector3): DeathKind {
