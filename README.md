@@ -87,20 +87,22 @@ personagem e cor. Para criar uma nova, veja `src/characters/Costumes.ts`.
 |---|---|
 | 🏙️ Telhado | Noite, outdoor de neon com passarela; a frente não tem mureta |
 | 🏭 Fábrica | Esteira que leva todo mundo para o buraco + prensa que desce de tempos em tempos |
-| 🎡 Roda-Gigante | Plataformas de embarque e cabines que sobem e descem; de vez em quando a roda dispara |
+| 🎡 Roda-Gigante | Cada um começa numa cabine sem porta da roda-gigante sobre um píer; as cabines balançam com o peso, tábuas soltas do píer caem na água e as letras do letreiro despencam |
 | 🚂 Trem em Movimento | Atravessa a periferia da cidade; postes rentes aos lados e túnel que varre quem estiver em pé |
-| 🔥 Incinerador | Passarela de grades sobre a fornalha: as grades caem uma a uma e às vezes sobe uma labareda |
+| 🔥 Incinerador | Sala de triagem com o poço do incinerador no meio: duas esteiras levam tudo para o alçapão, que abre de tempos em tempos; mezanino com rampas no fundo |
 | 🏗️ Vigas | Vigas estreitas de prédio em obras, guindaste que varre e ventania |
 | 💥 Demolição | Último andar de um prédio sendo derrubado: a bola de demolição balança e muda de faixa |
-| 🛗 Elevadores | Três elevadores de obra subindo e descendo; lá no alto a viga raspa a cabeça |
-| 🌊 Farol | Varanda redonda num farol, na tempestade: guarda-corpo com buracos e rajadas de vento |
-| 🚚 Caminhões | Briga em cima de dois caminhões de baú que se afastam e encostam; placas passam por cima |
+| 🛗 Elevadores | Dois elevadores de obra subindo e descendo; soque os cabos: com um partido ele entorta, com os dois ele despenca |
+| 🌊 Farol | Alto de um farol na tempestade: sala da lanterna no meio (dá para entrar pelas portas) e varanda em volta com guarda-corpo cheio de buracos; rajadas de vento |
+| 🚚 Caminhões | Dois caminhões de baú na estrada, indo e voltando; dá para entrar no baú pela traseira aberta e as placas varrem uma pista de cada vez |
 | 🚡 Teleférico | Duas cabines vão e voltam entre estações nas montanhas e se cruzam no meio |
-| 🌀 Ventiladores | Terraço com ventiladores gigantes no chão: a grade pisca e joga quem está em cima lá no alto |
+| 🌀 Ventiladores | Passarelas sobre três poços de ventilação que alternam entre soprar para cima e sugar para dentro |
 | 🦈 Barco de Pesca | O barco balança no mar; tubarões pulam no convés, mordem alguém e tentam arrastar para o mar (aperte botões ou soquem o tubarão 3 vezes para soltar) |
 | 🐙 Aquário | Passarelas estreitas sobre um tanque gigante; tentáculos de polvo sobem, batem e varrem a passarela |
 | 🌉 Ponte Levadiça | A sirene toca e as duas metades da ponte sobem: todo mundo escorrega para o vão sobre o rio |
-| 🚇 Metrô | Plataforma entre dois trilhos; as luzes piscam e um trem passa a toda, atropelando quem estiver no trilho |
+| 🚇 Metrô | Plataforma entre dois trilhos onde trens passam a toda; escada rolante e elevador levam a um mezanino; cones de trânsito para jogar |
+| ⚙️ Moedor | Passarela em forma de 8 sobre rolos dentados de um triturador; jatos de vapor jogam todo mundo para cima |
+| 🪟 Andaime | Duas gôndolas de limpador de janela ligadas por uma tábua solta; soque os cabos para deixar a gôndola pendurada de lado ou despencar |
 
 ## Como adicionar um mapa novo
 

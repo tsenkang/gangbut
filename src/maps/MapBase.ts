@@ -53,7 +53,7 @@ export interface Lighting {
   shadowExtent?: number;
 }
 
-export type DeathKind = 'fall' | 'lava' | 'water' | 'left' | 'train' | 'none';
+export type DeathKind = 'fall' | 'lava' | 'water' | 'left' | 'train' | 'grind' | 'none';
 
 export abstract class GameMap {
   abstract id: string;
@@ -90,6 +90,14 @@ export abstract class GameMap {
    */
   safeSpot(_p: THREE.Vector3): THREE.Vector3 {
     return this.camera.center;
+  }
+
+  /**
+   * Onde o robô que está carregando alguém deve jogá-lo (ex.: o poço
+   * aberto do incinerador). null = leva até a beirada mais perto.
+   */
+  dumpSpot(_p: THREE.Vector3): THREE.Vector3 | null {
+    return null;
   }
 
   /** Perigos que tiram alguém do jogo direto (ex.: atropelado pelo trem). */

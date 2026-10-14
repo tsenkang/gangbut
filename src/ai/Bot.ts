@@ -231,7 +231,8 @@ export class Bot implements InputSource {
     }
 
     // ----- perigo anunciado pelo mapa (túnel, prensa, guindaste...): corre para o lugar seguro
-    const safe = this.heed ? this.arena.map.botAdvice(me) : null;
+    const dumping = this.mode === 'carry' && this.arena.map.dumpSpot(me) !== null;
+    const safe = this.heed && !dumping ? this.arena.map.botAdvice(me) : null;
     if (safe) {
       o.grabL = o.grabR = false;
       const d = safe.clone().sub(me).setY(0);
@@ -270,6 +271,21 @@ export class Bot implements InputSource {
       // Leva o coitado até a borda mais perto e joga (os espertos erguem antes).
       o.grabL = o.grabR = true;
       o.armY = this.difficulty === 'dificil' || (this.difficulty === 'medio' && this.target?.ko) ? 1 : 0.5;
+      const dump = this.arena.map.dumpSpot(me);
+      if (dump) {
+        // o mapa tem um lugar certo para jogar (poço, fornalha...): leva até lá
+        const d = dump.clone().sub(me).setY(0);
+        const dl = d.length();
+        this.wantDir.copy(d.normalize());
+        if (dl < 2 || this.modeTime > 6) {
+          this.wantDir.multiplyScalar(-0.6);
+          o.punchL = true;
+          o.punchR = true;
+          this.mode = 'flee';
+          this.modeTime = 0;
+        }
+        return;
+      }
       const away = me.clone().sub(center).setY(0);
       if (away.lengthSq() < 0.01) away.set(1, 0, 0);
       away.normalize();

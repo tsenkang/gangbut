@@ -5,15 +5,18 @@ import { grimeTexture } from './City';
 
 // ------------------------------------------------------------
 // Mapa 9 — FAROL
-// A varandinha redonda no alto de um farol, numa noite de
-// tempestade. O guarda-corpo tem buracos, a cúpula do farol dá
-// para escalar, e de vez em quando uma onda gigante estoura lá
+// O alto de um farol numa noite de tempestade: a sala da lanterna
+// no meio (dá para entrar pelas duas portas e brigar lá dentro, em
+// volta da lâmpada girando) e a varanda redonda em volta, com o
+// guarda-corpo cheio de buracos. A cúpula dá para escalar, e de vez em quando uma onda gigante estoura lá
 // embaixo e o vento empurra todo mundo para um lado. Raios
 // iluminam tudo de repente. Caiu? Mar bravo.
 // ------------------------------------------------------------
 
-const R = 6.6; // raio da varanda
-const TOWER_R = 1.7; // raio da sala da lanterna
+const R = 7.8; // raio da varanda
+const TOWER_R = 3.1; // raio da sala da lanterna (oca, dá para entrar)
+const ROOM_H = 2.7;
+const DOOR = 0.62; // meia abertura (rad) de cada porta
 const SEA_Y = -26;
 
 export class Lighthouse extends GameMap {
@@ -21,16 +24,16 @@ export class Lighthouse extends GameMap {
   name = 'Farol';
   emoji = '🌊';
   description = 'A varanda redonda no alto de um farol, numa noite de tempestade.';
-  hazard = 'Rajadas de vento empurram todo mundo e o guarda-corpo tem buracos!';
+  hazard = 'Rajadas de vento varrem a varanda (só a sala da lanterna protege) e o guarda-corpo tem buracos!';
   music = 'trem' as const;
   killY = -12;
   camera = {
     dir: new THREE.Vector3(0, 0.75, 1),
-    minDist: 14,
-    maxDist: 26,
+    minDist: 15,
+    maxDist: 28,
     fov: 44,
     center: new THREE.Vector3(0, 0.6, 0),
-    bounds: new THREE.Box3(new THREE.Vector3(-4.5, -1, -4.5), new THREE.Vector3(4.5, 3, 4.5)),
+    bounds: new THREE.Box3(new THREE.Vector3(-5.5, -1, -5.5), new THREE.Vector3(5.5, 3, 5.5)),
   };
 
   private beam!: THREE.Group;
@@ -42,6 +45,8 @@ export class Lighthouse extends GameMap {
   private gustTimer = 9;
   private gustDir = new THREE.Vector3();
   private rainT = 0;
+  private roofMats: THREE.Material[] = [];
+  private lens!: THREE.Group;
 
   build() {
     const { hemi } = this.lights({
@@ -92,39 +97,79 @@ export class Lighthouse extends GameMap {
       this.box({ x: mx, y: 0.55, z: mz }, { x: len, y: 0.04, z: 0.04 }, rail, { rot, collide: false });
     }
 
-    // ---------------- sala da lanterna (no meio) + cúpula (dá para subir)
-    this.ctx.physics.addStatic({ x: 0, y: 1.3, z: 0 }, RAPIER.ColliderDesc.cylinder(1.3, TOWER_R));
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(TOWER_R, TOWER_R, 0.9, 32), white);
-    base.position.y = 0.45;
-    this.deco(base);
-    const glass = new THREE.Mesh(
-      new THREE.CylinderGeometry(TOWER_R - 0.05, TOWER_R - 0.05, 1.6, 32, 1, true),
-      new THREE.MeshPhysicalMaterial({ color: 0xfff3c4, emissive: 0xffe28a, emissiveIntensity: 0.9, transparent: true, opacity: 0.55, roughness: 0.1 }),
-    );
-    glass.position.y = 1.7;
-    this.deco(glass, false);
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2;
-      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.6, 0.08), rail);
-      bar.position.set(Math.cos(a) * TOWER_R, 1.7, Math.sin(a) * TOWER_R);
-      this.deco(bar);
+    // ---------------- sala da lanterna (oca: duas portas, lâmpada no meio)
+    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xfff3c4, emissive: 0xffe28a, emissiveIntensity: 0.5, transparent: true, opacity: 0.32, roughness: 0.1, depthWrite: false });
+    const segs = 28;
+    const segLen = 2 * TOWER_R * Math.sin(Math.PI / segs) + 0.04;
+    const isDoor = (a: number) => {
+      const d1 = Math.abs(Math.atan2(Math.sin(a - Math.PI / 2), Math.cos(a - Math.PI / 2)));
+      const d2 = Math.abs(Math.atan2(Math.sin(a + Math.PI / 2), Math.cos(a + Math.PI / 2)));
+      return d1 < DOOR || d2 < DOOR;
+    };
+    for (let i = 0; i < segs; i++) {
+      const a = ((i + 0.5) / segs) * Math.PI * 2;
+      if (isDoor(a)) continue;
+      const x = Math.cos(a) * TOWER_R;
+      const z = Math.sin(a) * TOWER_R;
+      const rot = new THREE.Euler(0, -a + Math.PI / 2, 0);
+      // rodapé branco sólido + vidro em cima (tudo colide)
+      this.box({ x, y: 0.45, z }, { x: segLen, y: 0.9, z: 0.18 }, white, { rot });
+      this.box({ x, y: 0.9 + (ROOM_H - 0.9) / 2, z }, { x: segLen, y: ROOM_H - 0.9, z: 0.1 }, glassMat, { rot });
+      if (i % 2 === 0) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.08, ROOM_H, 0.08), rail);
+        bar.position.set(Math.cos(a) * (TOWER_R + 0.06), ROOM_H / 2, Math.sin(a) * (TOWER_R + 0.06));
+        this.deco(bar);
+      }
     }
-    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 12), new THREE.MeshBasicMaterial({ color: 0xfff6d0, toneMapped: false }));
-    lamp.position.y = 1.7;
-    this.deco(lamp, false);
-    const dome = new THREE.Mesh(new THREE.SphereGeometry(TOWER_R + 0.15, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2), red);
-    dome.position.y = 2.6;
-    dome.scale.y = 0.6;
+    // batentes das portas
+    for (const c of [Math.PI / 2, -Math.PI / 2]) {
+      for (const s of [-1, 1]) {
+        const a = c + s * DOOR;
+        this.box({ x: Math.cos(a) * TOWER_R, y: ROOM_H / 2, z: Math.sin(a) * TOWER_R }, { x: 0.18, y: ROOM_H, z: 0.18 }, red);
+      }
+      this.box({ x: 0, y: ROOM_H - 0.2, z: Math.sin(c) * TOWER_R }, { x: 2 * TOWER_R * Math.sin(DOOR), y: 0.4, z: 0.2 }, red);
+    }
+    // teto + cúpula (somem quando tem alguém lá dentro, para a câmera ver)
+    const roofMat = this.material(0xb22d2d, { roughness: 0.6 });
+    roofMat.transparent = true;
+    const roof = new THREE.Mesh(new THREE.CylinderGeometry(TOWER_R + 0.25, TOWER_R + 0.25, 0.3, 40), roofMat);
+    roof.position.y = ROOM_H + 0.15;
+    this.deco(roof);
+    this.ctx.physics.addStatic({ x: 0, y: ROOM_H + 0.15, z: 0 }, RAPIER.ColliderDesc.cylinder(0.15, TOWER_R + 0.25));
+    const domeMat = roofMat.clone();
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(TOWER_R * 0.75, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2), domeMat);
+    dome.position.y = ROOM_H + 0.3;
+    dome.scale.y = 0.45;
     this.deco(dome);
-    this.ctx.physics.addStatic({ x: 0, y: 2.75, z: 0 }, RAPIER.ColliderDesc.cylinder(0.15, TOWER_R + 0.15));
     const spire = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.8, 8), rail);
-    spire.position.y = 3.9;
+    spire.position.y = ROOM_H + 0.3 + TOWER_R * 0.75 * 0.45 + 0.35;
     this.deco(spire);
-    // escadinha na lateral da sala (para subir na cúpula)
-    for (let k = 0; k < 5; k++) this.box({ x: 0, y: 0.35 + k * 0.5, z: TOWER_R + 0.12 }, { x: 0.7, y: 0.06, z: 0.06 }, rail);
-    const lightL = new THREE.PointLight(0xffe7a8, 25, 14, 1.6);
-    lightL.position.y = 1.7;
+    this.roofMats = [roofMat, domeMat];
+    // escadinha do lado de fora (x+) para subir no teto
+    for (let k = 0; k < 6; k++) this.box({ x: TOWER_R + 0.22, y: 0.35 + k * 0.46, z: 0 }, { x: 0.06, y: 0.06, z: 0.8 }, rail);
+    // pedestal da lâmpada no centro (dá para usar de cobertura)
+    const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.75, 1.0, 20), rail);
+    ped.position.y = 0.5;
+    this.deco(ped);
+    this.ctx.physics.addStatic({ x: 0, y: 0.5, z: 0 }, RAPIER.ColliderDesc.cylinder(0.5, 0.7));
+    this.lens = new THREE.Group();
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 12), new THREE.MeshBasicMaterial({ color: 0xfff6d0, toneMapped: false }));
+    this.lens.add(lamp);
+    for (const s of [1, -1]) {
+      const hood = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.25, 0.5, 16, 1, true), rail);
+      hood.rotation.z = (s * Math.PI) / 2;
+      hood.position.x = -s * 0.35;
+      this.lens.add(hood);
+    }
+    this.lens.position.y = 1.5;
+    this.deco(this.lens, false);
+    const lightL = new THREE.PointLight(0xffe7a8, 30, 16, 1.6);
+    lightL.position.y = 1.6;
     this.ctx.root.add(lightL);
+    // chão interno de madeira
+    const floorIn = new THREE.Mesh(new THREE.CylinderGeometry(TOWER_R - 0.1, TOWER_R - 0.1, 0.02, 40), this.material(0x6b4a2e, { roughness: 0.9 }));
+    floorIn.position.y = 0.01;
+    this.deco(floorIn, false);
 
     // facho de luz girando
     this.beam = new THREE.Group();
@@ -137,7 +182,7 @@ export class Lighthouse extends GameMap {
       cone.position.x = s * 20;
       this.beam.add(cone);
     }
-    this.beam.position.y = 1.7;
+    this.beam.position.y = 1.5;
     this.deco(this.beam, false);
 
     // ---------------- torre do farol descendo até o mar (listrada)
@@ -176,19 +221,27 @@ export class Lighthouse extends GameMap {
     sea.position.y = SEA_Y;
     this.deco(sea, false);
 
-    this.prop('barril', new THREE.Vector3(2.8, 0.5, 1.4), 0x2b5e8a);
-    this.prop('caixa', new THREE.Vector3(-2.8, 0.5, -1.4));
+    this.prop('barril', new THREE.Vector3(5.4, 0.5, 2.2), 0x2b5e8a);
+    this.prop('caixa', new THREE.Vector3(-5.4, 0.5, -2.2));
+    this.prop('caixa', new THREE.Vector3(-1.6, 0.5, 1.4));
+    this.prop('barril', new THREE.Vector3(1.8, 0.5, -1.2), 0xd95f2b);
 
-    // mais caixas e um segundo barril na varanda maior
-    this.prop('caixa', new THREE.Vector3(0, 0.5, 4.6));
-    this.prop('barril', new THREE.Vector3(-4.2, 0.5, -2.8), 0xd95f2b);
-
-    this.spawns = [new THREE.Vector3(-4.2, 0.05, 2.2), new THREE.Vector3(4.2, 0.05, 2.2), new THREE.Vector3(-4.2, 0.05, -2.2), new THREE.Vector3(4.2, 0.05, -2.2)];
+    // dois começam dentro da sala da lanterna, dois na varanda
+    this.spawns = [new THREE.Vector3(-1.8, 0.05, 0.4), new THREE.Vector3(1.8, 0.05, 0.4), new THREE.Vector3(-5.4, 0.05, 2.6), new THREE.Vector3(5.4, 0.05, -2.6)];
   }
 
   update(dt: number, time: number, arena: ArenaApi) {
     this.seaMat.uniforms.t.value = time;
     this.beam.rotation.y = time * 0.7;
+    this.lens.rotation.y = time * 0.7;
+    // teto fica transparente quando tem alguém dentro da sala
+    let inside = false;
+    for (const f of arena.fighters) {
+      if (!f.alive || f.removed) continue;
+      const p = f.pos('pelvis');
+      if (p.x * p.x + p.z * p.z < TOWER_R * TOWER_R && p.y < ROOM_H) inside = true;
+    }
+    for (const m of this.roofMats) m.opacity += ((inside ? 0.18 : 1) - m.opacity) * Math.min(1, dt * 6);
 
     // Chuva (respingos na varanda)
     this.rainT -= dt;
@@ -227,6 +280,8 @@ export class Lighthouse extends GameMap {
       const k = Math.min(1, this.gustT) * 6.5 * dt;
       for (const f of arena.fighters) {
         if (!f.alive || f.removed) continue;
+        const pp = f.pos('pelvis');
+        if (pp.x * pp.x + pp.z * pp.z < (TOWER_R - 0.2) ** 2 && pp.y < ROOM_H) continue; // abrigado na sala
         for (const b of f.ragdoll.bodies()) {
           const v = b.linvel();
           b.setLinvel({ x: v.x + this.gustDir.x * k, y: v.y, z: v.z + this.gustDir.z * k }, true);
@@ -237,9 +292,13 @@ export class Lighthouse extends GameMap {
   }
 
   botAdvice(p: THREE.Vector3): THREE.Vector3 | null {
-    // Na rajada: chega perto da sala da lanterna, do lado de onde o vento vem
+    // Na rajada: se abriga dentro da sala da lanterna (entra pela porta mais perto)
     if (this.gustT <= 0 || p.y < -1) return null;
-    return this.gustDir.clone().multiplyScalar(-(TOWER_R + 0.9)).setY(0);
+    const r = Math.hypot(p.x, p.z);
+    if (r < TOWER_R - 0.4) return null;
+    const sz = p.z >= 0 ? 1 : -1;
+    if (Math.abs(p.x) > 1.2 && r > TOWER_R) return new THREE.Vector3(Math.sign(p.x) * 0.6, 0, sz * (TOWER_R + 1.3));
+    return new THREE.Vector3(0, 0, sz * 1.2);
   }
 
   deathAt(p: THREE.Vector3): DeathKind {

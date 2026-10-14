@@ -34,6 +34,7 @@ const OUT_LINES: Record<string, string[]> = {
   water: ['TCHIBUM!', 'AFUNDOU!', 'GELATINA NA ÁGUA!'],
   left: ['FICOU PRA TRÁS!', 'PERDEU O TREM!'],
   train: ['ATROPELADO!', 'PEGOU O TREM ERRADO!', 'FIUUU!'],
+  grind: ['MOÍDO!', 'TRITURADO!', 'VIROU PICADINHO!'],
   ko: ['DORMIU DE VEZ!', 'APAGOU!'],
 };
 const pick = <T>(a: T[]) => a[Math.floor(Math.random() * a.length)];
@@ -327,6 +328,11 @@ export class Arena implements ArenaApi {
     } else if (k === 'water') {
       this.effects.splash(p, 0xcfefff);
       this.sound('splash', 1);
+    } else if (k === 'grind') {
+      this.effects.sparks(p, 0xfff1a8, 26, 8);
+      this.effects.drops(p, f.appearance.color, new THREE.Vector3(0, 1, 0), 2.5);
+      this.sound('crack', 1, 0.5);
+      this.shake(0.3);
     }
     this.sound('elim', 0.8);
     this.sound('cheer', 0.6);

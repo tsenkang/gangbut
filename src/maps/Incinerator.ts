@@ -5,57 +5,61 @@ import { RAPIER } from '../physics/Physics';
 
 // ------------------------------------------------------------
 // Mapa 5 — INCINERADOR
-// Uma passarela de grades de aço sobre a fornalha de uma usina de
-// lixo. As grades tremem e se soltam uma a uma; os canos dos lados
-// servem para se pendurar. De vez em quando a fornalha solta uma
-// labareda. Caiu lá embaixo? Virou churrasco.
+// A sala de triagem de uma usina de lixo. No meio do piso fica o
+// poço do incinerador, tampado por um alçapão de duas folhas; duas
+// esteiras rolantes, uma de cada lado, levam tudo (e todos) direto
+// para ele. De tempos em tempos o alçapão abre e a fornalha cospe
+// fogo. Em cima, um mezanino no fundo, com rampas nas laterais. Na
+// frente, um guarda-corpo com vãos dá para o fosso de fogo.
 // ------------------------------------------------------------
 
-const PLANKS = 14;
-const BRIDGE_X0 = -7;
-const PLANK_W = 1;
-const HALF_D = 2.3; // passarela larga
-const LAVA_Y = -6;
+const HX = 13.5; // meia largura da sala
+const HZ = 5.5; // meia profundidade da sala
+const PIT_X = 2.4; // meio vão do poço
+const PIT_Z = 2.6;
+const BELT_Z = 1.1; // meia largura das esteiras
+const BELT_X = 11.4; // onde as esteiras começam
+const BELT_Y = 0.2;
+const BELT_SPEED = 1.5;
+const MEZ_Y = 2.8;
+const MEZ_Z = -3.3; // borda da frente do mezanino
+const LAVA_Y = -5;
 
-interface Plank {
-  body: RAPIER.RigidBody;
-  mesh: THREE.Mesh;
-  state: 'ok' | 'shaking' | 'falling';
-  t: number;
-  base: THREE.Vector3;
-}
+type HatchState = 'closed' | 'warn' | 'open' | 'closing';
 
 export class Incinerator extends GameMap {
   id = 'incinerador';
   name = 'Incinerador';
   emoji = '🔥';
-  description = 'Passarela de grades sobre a fornalha de uma usina de lixo.';
-  hazard = 'As grades se soltam e caem no fogo! Segure nos canos para não cair.';
+  description = 'Sala de triagem de lixo: esteiras levam tudo para o poço do incinerador no meio.';
+  hazard = 'As esteiras te levam para o alçapão — quando ele abre, é direto para o fogo!';
   music = 'lava' as const;
   killY = -10;
   camera = {
-    dir: new THREE.Vector3(0, 0.62, 1),
-    minDist: 13,
-    maxDist: 28,
+    dir: new THREE.Vector3(0, 0.7, 1),
+    minDist: 14,
+    maxDist: 30,
     fov: 42,
-    center: new THREE.Vector3(0, 0.4, 0),
-    bounds: new THREE.Box3(new THREE.Vector3(-11, -1, -1.8), new THREE.Vector3(11, 3, 1.8)),
+    center: new THREE.Vector3(0, 0.8, 0),
+    bounds: new THREE.Box3(new THREE.Vector3(-12, -1, -4.5), new THREE.Vector3(12, 3.5, 4.5)),
   };
 
-  private planks: Plank[] = [];
-  private dropTimer = 4;
   private lavaMat!: THREE.ShaderMaterial;
+  private beltTex: THREE.Texture[] = [];
+  private hatches: { body: RAPIER.RigidBody; side: number }[] = [];
+  private hatch: HatchState = 'closed';
+  private hatchT = 0;
+  private hatchTimer = 12;
+  private openK = 0; // 0 = fechado, 1 = aberto
   private emberT = 0;
-  private flareT = -1;
-  private flareTimer = 12;
   private doorGlow!: THREE.MeshBasicMaterial;
+  private warnLamps: THREE.MeshBasicMaterial[] = [];
 
   build() {
     this.lights({
-      // dentro do galpão: penumbra fria em cima, fogo laranja embaixo
       skyTop: 0x1c1d26,
       skyBottom: 0x4a2a22,
-      fog: { color: 0x2e2324, near: 22, far: 70 },
+      fog: { color: 0x2e2324, near: 26, far: 75 },
       sunColor: 0xd8dcff,
       sunIntensity: 1.5,
       sunPos: new THREE.Vector3(-6, 18, 8),
@@ -64,12 +68,11 @@ export class Incinerator extends GameMap {
       hemiIntensity: 1.5,
       shadowExtent: 19,
     });
-    // Luz quente vinda de baixo (da fornalha)
-    const glow = new THREE.PointLight(0xff6a1a, 70, 30, 1.5);
-    glow.position.set(0, -3, 2);
+    const glow = new THREE.PointLight(0xff6a1a, 60, 24, 1.5);
+    glow.position.set(0, -2.5, 0);
     this.ctx.root.add(glow);
 
-    // Fogo da fornalha (shader simples: chamas que correm)
+    // Fogo (embaixo do poço e no fosso da frente)
     this.lavaMat = new THREE.ShaderMaterial({
       uniforms: { t: { value: 0 } },
       fog: false,
@@ -77,7 +80,7 @@ export class Incinerator extends GameMap {
       fragmentShader: `uniform float t; varying vec2 vUv;
         float n(vec2 p){ return sin(p.x)*sin(p.y); }
         void main(){
-          vec2 p = vUv * vec2(18.0, 12.0);
+          vec2 p = vUv * vec2(30.0, 14.0);
           float v = n(p + vec2(t*0.9, t*1.7)) + n(p*1.9 - vec2(t*0.6, -t*1.1)) * 0.6 + n(p*3.7 + t*2.0) * 0.35;
           v = v * 0.5 + 0.5;
           vec3 c = mix(vec3(0.25,0.02,0.0), vec3(1.0,0.35,0.02), smoothstep(0.3,0.8,v));
@@ -85,211 +88,281 @@ export class Incinerator extends GameMap {
           gl_FragColor = vec4(c, 1.0);
         }`,
     });
-    const lava = new THREE.Mesh(new THREE.PlaneGeometry(16, 10.5), this.lavaMat);
+    const lava = new THREE.Mesh(new THREE.PlaneGeometry(60, 30), this.lavaMat);
     lava.rotation.x = -Math.PI / 2;
-    lava.position.y = LAVA_Y;
+    lava.position.set(0, LAVA_Y, 6);
     this.deco(lava, false);
 
-    // Poço da fornalha: paredes de tijolo queimado em volta do fogo
-    const brick = new THREE.MeshStandardMaterial({ map: grimeTexture('#4a2c26', [6, 3], { tiles: 8, dark: 'rgba(0,0,0,0.35)' }), roughness: 1 });
-    this.box({ x: 0, y: LAVA_Y + 2.5, z: -5 }, { x: 16, y: 5, z: 1 }, brick, { collide: false });
-
-    // Plataformas de concreto dos lados (com faixa de perigo na beirada)
-    const concrete = new THREE.MeshStandardMaterial({ map: grimeTexture('#6d6862', [2, 2], { tiles: 4, cracks: true }), roughness: 0.95 });
+    // ---------------- piso com o buraco do poço no meio
+    const concrete = new THREE.MeshStandardMaterial({ map: grimeTexture('#6d6862', [3, 2], { tiles: 6, cracks: true }), roughness: 0.95 });
+    const T = 1; // espessura
+    this.box({ x: -(HX + PIT_X) / 2, y: -T / 2, z: 0 }, { x: HX - PIT_X, y: T, z: HZ * 2 }, concrete);
+    this.box({ x: (HX + PIT_X) / 2, y: -T / 2, z: 0 }, { x: HX - PIT_X, y: T, z: HZ * 2 }, concrete);
+    this.box({ x: 0, y: -T / 2, z: (HZ + PIT_Z) / 2 }, { x: PIT_X * 2, y: T, z: HZ - PIT_Z }, concrete);
+    this.box({ x: 0, y: -T / 2, z: -(HZ + PIT_Z) / 2 }, { x: PIT_X * 2, y: T, z: HZ - PIT_Z }, concrete);
+    // paredes do poço (tijolo queimado) até o fogo
+    const brick = new THREE.MeshStandardMaterial({ map: grimeTexture('#4a2c26', [2, 2], { tiles: 6, dark: 'rgba(0,0,0,0.35)' }), roughness: 1 });
+    const depth = -LAVA_Y;
+    for (const s of [-1, 1]) {
+      this.box({ x: s * (PIT_X + 0.15), y: -depth / 2 - 0.5, z: 0 }, { x: 0.3, y: depth - 1, z: PIT_Z * 2 }, brick, { shadow: false });
+      this.box({ x: 0, y: -depth / 2 - 0.5, z: s * (PIT_Z + 0.15) }, { x: PIT_X * 2, y: depth - 1, z: 0.3 }, brick, { shadow: false });
+    }
+    // faixas de perigo em volta do poço
     const stripes = new THREE.MeshStandardMaterial({ map: hazardStripes([3, 1]) });
+    for (const s of [-1, 1]) {
+      this.box({ x: 0, y: 0.01, z: s * (PIT_Z + 0.25) }, { x: PIT_X * 2 + 0.5, y: 0.03, z: 0.3 }, stripes, { collide: false, shadow: false });
+    }
+
+    // ---------------- alçapão de duas folhas (articulado nas bordas)
+    const plate = new THREE.MeshStandardMaterial({ map: grimeTexture('#565c66', [1, 2], { tiles: 4, dark: 'rgba(0,0,0,0.3)' }), roughness: 0.6, metalness: 0.6 });
+    for (const side of [-1, 1]) {
+      const g = new THREE.Group();
+      const m = new THREE.Mesh(new THREE.BoxGeometry(PIT_X - 0.02, 0.2, PIT_Z * 2 - 0.04), plate);
+      g.add(m);
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.21, PIT_Z * 2 - 0.04), new THREE.MeshStandardMaterial({ map: hazardStripes([1, 4]) }));
+      stripe.position.x = -side * (PIT_X / 2 - 0.1);
+      g.add(stripe);
+      const body = this.kinematic(new THREE.Vector3(side * PIT_X / 2, -0.1, 0), RAPIER.ColliderDesc.cuboid(PIT_X / 2 - 0.01, 0.1, PIT_Z - 0.02), g, { grabbable: true });
+      this.hatches.push({ body, side });
+    }
+
+    // ---------------- esteiras rolantes (levam para o poço)
     const steel = this.material(0x58606b, { roughness: 0.55, metalness: 0.6 });
     for (const s of [-1, 1]) {
-      const x = s * 12.5;
-      this.box({ x, y: -5, z: 0 }, { x: 11, y: 10, z: 11 }, concrete);
-      this.box({ x: s * 7.1, y: 0.01, z: 0 }, { x: 0.15, y: 0.03, z: 7 }, stripes, { collide: false, shadow: false });
-      // máquina / contêiner de lixo (dá para subir)
-      this.box({ x: x + s * 1.5, y: 0.6, z: -2.4 }, { x: 2.5, y: 1.2, z: 1.6 }, this.material(0x2f6f4e, { roughness: 0.7, metalness: 0.3 }));
-      this.box({ x: x + s * 2.4, y: 1.4, z: 1.8 }, { x: 1.6, y: 2.8, z: 1.6 }, steel);
-    }
-
-    // Parede do fundo: chapas de aço e a porta redonda da fornalha
-    const plates = new THREE.MeshStandardMaterial({ map: grimeTexture('#3d424b', [8, 3], { tiles: 6, dark: 'rgba(0,0,0,0.3)' }), roughness: 0.7, metalness: 0.5 });
-    this.box({ x: 0, y: 6, z: -9 }, { x: 40, y: 26, z: 1 }, plates, { collide: false });
-    const door = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.2, 0.5, 32), steel);
-    door.rotation.x = Math.PI / 2;
-    door.position.set(0, 5.5, -8.4);
-    this.deco(door, false);
-    this.doorGlow = new THREE.MeshBasicMaterial({ color: 0xff7a1a, toneMapped: false });
-    const mouth = new THREE.Mesh(new THREE.CircleGeometry(2.4, 32), this.doorGlow);
-    mouth.position.set(0, 5.5, -8.1);
-    this.deco(mouth, false);
-    for (let i = 0; i < 6; i++) {
-      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.18, 4.8, 0.18), this.material(0x1d1f24, { metalness: 0.6 }));
-      bar.position.set(-1.75 + i * 0.7, 5.5, -7.95);
-      this.deco(bar, false);
-    }
-    // Canos grossos e chaminés
-    const pipe = this.material(0x8a5a3a, { roughness: 0.6, metalness: 0.5 });
-    for (const [x, y] of [
-      [-8, 9],
-      [8, 11],
-      [-14, 4],
-      [14, 6],
-    ]) {
-      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 30, 16), pipe);
-      p.position.set(x, y, -8);
-      this.deco(p, false);
-    }
-    const duct = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 30, 12), pipe);
-    duct.rotation.z = Math.PI / 2;
-    duct.position.set(0, 12, -7.6);
-    this.deco(duct, false);
-    // Lâmpadas industriais penduradas
-    for (const x of [-8, 0, 8]) {
-      const shade = new THREE.Mesh(new THREE.ConeGeometry(0.7, 0.5, 16, 1, true), this.material(0x2d3a2f, { side: THREE.DoubleSide }));
-      shade.position.set(x, 7, -1);
-      this.deco(shade, false);
-      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff1c8 }));
-      bulb.position.set(x, 6.75, -1);
-      this.deco(bulb, false);
-      const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 8, 4), this.material(0x111111));
-      cord.position.set(x, 11.2, -1);
-      this.deco(cord, false);
-    }
-
-    // Grades da passarela (cada uma é um corpo próprio, para poder cair)
-    const grate = new THREE.MeshStandardMaterial({
-      map: (() => {
+      const tex = (() => {
         const c = document.createElement('canvas');
-        c.width = c.height = 128;
+        c.width = 64;
+        c.height = 64;
         const g = c.getContext('2d')!;
-        g.fillStyle = '#7d848f';
-        g.fillRect(0, 0, 128, 128);
-        g.fillStyle = '#2a2d33';
-        for (let y = 6; y < 128; y += 16) for (let x = 6; x < 128; x += 16) g.fillRect(x, y, 10, 10);
+        g.fillStyle = '#26282c';
+        g.fillRect(0, 0, 64, 64);
+        g.fillStyle = '#3c4046';
+        for (let x = 0; x < 64; x += 16) g.fillRect(x, 0, 6, 64);
         const t = new THREE.CanvasTexture(c);
         t.colorSpace = THREE.SRGBColorSpace;
         t.wrapS = t.wrapT = THREE.RepeatWrapping;
-        t.repeat.set(1, 3);
+        t.repeat.set(BELT_X - PIT_X, 1);
         return t;
-      })(),
-      roughness: 0.6,
-      metalness: 0.6,
-    });
-    for (let i = 0; i < PLANKS; i++) {
-      const x = BRIDGE_X0 + PLANK_W * (i + 0.5);
-      const { mesh, body } = this.box(
-        { x, y: -0.15, z: 0 },
-        { x: PLANK_W - 0.06, y: 0.3, z: HALF_D * 2 },
-        grate,
-      );
-      body!.collider(0).setMass(20);
-      this.ctx.links.add(body!, mesh);
-      this.planks.push({ body: body!, mesh, state: 'ok', t: 0, base: new THREE.Vector3(x, -0.15, 0) });
+      })();
+      this.beltTex.push(tex);
+      const len = BELT_X - PIT_X;
+      const cx = s * (PIT_X + len / 2);
+      this.box({ x: cx, y: BELT_Y / 2, z: 0 }, { x: len, y: BELT_Y, z: BELT_Z * 2 }, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 }), { friction: 1 });
+      // laterais da esteira e rolo na ponta
+      for (const z of [-BELT_Z - 0.08, BELT_Z + 0.08]) this.box({ x: cx, y: BELT_Y / 2 + 0.05, z }, { x: len, y: BELT_Y + 0.1, z: 0.16 }, steel);
+      const roller = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, BELT_Z * 2, 12), steel);
+      roller.rotation.x = Math.PI / 2;
+      roller.position.set(s * BELT_X, BELT_Y / 2, 0);
+      this.deco(roller);
+      // funil de lixo no começo da esteira
+      this.box({ x: s * (BELT_X + 0.9), y: 1.6, z: 0 }, { x: 1.6, y: 3.2, z: 2.8 }, this.material(0x2f6f4e, { roughness: 0.7, metalness: 0.3 }));
     }
-    // Canos dos lados (presos nas plataformas: nunca caem)
+
+    // ---------------- paredes
+    const plates = new THREE.MeshStandardMaterial({ map: grimeTexture('#3d424b', [8, 3], { tiles: 6, dark: 'rgba(0,0,0,0.3)' }), roughness: 0.7, metalness: 0.5 });
+    this.box({ x: 0, y: 5, z: -HZ - 0.5 }, { x: HX * 2 + 2, y: 12, z: 1 }, plates);
+    for (const s of [-1, 1]) this.box({ x: s * (HX + 0.5), y: 3.5, z: 0 }, { x: 1, y: 9, z: HZ * 2 + 2 }, plates);
+    // boca da fornalha no fundo, atrás do poço
+    const door = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 0.4, 32), steel);
+    door.rotation.x = Math.PI / 2;
+    door.position.set(0, 1.6, -HZ + 0.1);
+    this.deco(door, false);
+    this.doorGlow = new THREE.MeshBasicMaterial({ color: 0xff7a1a, toneMapped: false });
+    const mouth = new THREE.Mesh(new THREE.CircleGeometry(1.8, 32), this.doorGlow);
+    mouth.position.set(0, 1.6, -HZ + 0.32);
+    this.deco(mouth, false);
+    for (let i = 0; i < 5; i++) {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.14, 3.6, 0.14), this.material(0x1d1f24, { metalness: 0.6 }));
+      bar.position.set(-1.2 + i * 0.6, 1.6, -HZ + 0.36);
+      this.deco(bar, false);
+    }
+    // lâmpadas de alerta dos lados do poço
+    for (const s of [-1, 1]) {
+      const m = new THREE.MeshBasicMaterial({ color: 0x441111, toneMapped: false });
+      const l = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 8), m);
+      l.position.set(s * 3.4, 3.9, -HZ + 0.2);
+      this.deco(l, false);
+      this.warnLamps.push(m);
+    }
+    // canos e chaminé
+    const pipe = this.material(0x8a5a3a, { roughness: 0.6, metalness: 0.5 });
+    const duct = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, HX * 2, 12), pipe);
+    duct.rotation.z = Math.PI / 2;
+    duct.position.set(0, 7.5, -HZ + 0.4);
+    this.deco(duct, false);
+    for (const x of [-8, 0, 8]) {
+      const shade = new THREE.Mesh(new THREE.ConeGeometry(0.7, 0.5, 16, 1, true), this.material(0x2d3a2f, { side: THREE.DoubleSide }));
+      shade.position.set(x, 8, 0);
+      this.deco(shade, false);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff1c8 }));
+      bulb.position.set(x, 7.75, 0);
+      this.deco(bulb, false);
+    }
+
+    // ---------------- mezanino no fundo (dois lados do poço) + rampas nas laterais
+    const grate = this.material(0x7d848f, { roughness: 0.6, metalness: 0.6 });
     const rail = this.material(0xd9a521, { roughness: 0.5, metalness: 0.5 });
-    for (const z of [-HALF_D - 0.1, HALF_D + 0.1]) {
-      this.box({ x: 0, y: 0.95, z }, { x: 15.5, y: 0.1, z: 0.1 }, rail);
-      this.box({ x: 0, y: -0.55, z }, { x: 15.5, y: 0.14, z: 0.14 }, this.material(0x55595f, { metalness: 0.6 }), { collide: false });
-      for (const x of [-7.4, 7.4]) this.box({ x, y: 0.5, z }, { x: 0.25, y: 1.2, z: 0.25 }, 0x3a3e45);
+    const mezD = HZ + MEZ_Z; // profundidade
+    for (const s of [-1, 1]) {
+      const x0 = 3.2;
+      const cx = s * (x0 + HX) / 2;
+      const w = HX - x0;
+      this.box({ x: cx, y: MEZ_Y - 0.15, z: -HZ + mezD / 2 }, { x: w, y: 0.3, z: mezD }, grate);
+      // pilares
+      for (const px of [x0 + 0.3, (x0 + HX) / 2]) this.box({ x: s * px, y: MEZ_Y / 2 - 0.15, z: MEZ_Z + 0.25 }, { x: 0.3, y: MEZ_Y - 0.3, z: 0.3 }, steel);
+      // guarda-corpo com um vão no meio
+      const g1 = { a: x0, b: (x0 + HX) / 2 - 1 };
+      const g2 = { a: (x0 + HX) / 2 + 1, b: HX - 1.9 };
+      for (const g of [g1, g2]) {
+        this.box({ x: s * (g.a + g.b) / 2, y: MEZ_Y + 1, z: MEZ_Z - 0.05 }, { x: g.b - g.a, y: 0.08, z: 0.08 }, rail);
+        for (const px of [g.a, g.b]) this.box({ x: s * px, y: MEZ_Y + 0.5, z: MEZ_Z - 0.05 }, { x: 0.08, y: 1, z: 0.08 }, rail);
+      }
+      // rampa encostada na parede lateral, da frente até o mezanino
+      const rz0 = 3.8;
+      const run = rz0 - MEZ_Z;
+      const ang = Math.atan2(MEZ_Y, run);
+      const len = Math.hypot(MEZ_Y, run);
+      this.box(
+        { x: s * (HX - 0.85), y: MEZ_Y / 2 - 0.12, z: (rz0 + MEZ_Z) / 2 },
+        { x: 1.7, y: 0.24, z: len },
+        grate,
+        { rot: new THREE.Euler(ang, 0, 0), friction: 1 },
+      );
+      this.box({ x: s * (HX - 1.75), y: MEZ_Y / 2 + 0.75, z: (rz0 + MEZ_Z) / 2 }, { x: 0.08, y: 0.08, z: len }, rail, { rot: new THREE.Euler(ang, 0, 0) });
     }
 
-    this.prop('barril', new THREE.Vector3(-10, 0.5, -0.5), 0xd94a3a);
-    this.prop('caixa', new THREE.Vector3(10, 0.5, 0.6));
-    this.prop('caixa', new THREE.Vector3(-9, 0.5, 3));
-    this.prop('barril', new THREE.Vector3(9.5, 0.5, -3), 0x2b5e8a);
+    // ---------------- guarda-corpo da frente (com vãos) — atrás dele, o fosso de fogo
+    const gaps = [
+      [-7, -5.2],
+      [4.2, 6],
+    ];
+    for (let x = -HX + 0.4; x <= HX - 0.4; x += 1.8) {
+      if (gaps.some(([a, b]) => x > a - 0.2 && x < b + 0.2)) continue;
+      this.box({ x, y: 0.5, z: HZ - 0.1 }, { x: 0.1, y: 1, z: 0.1 }, rail);
+    }
+    const segs: [number, number][] = [
+      [-HX, -7],
+      [-5.2, 4.2],
+      [6, HX],
+    ];
+    for (const [a, b] of segs) this.box({ x: (a + b) / 2, y: 1, z: HZ - 0.1 }, { x: b - a, y: 0.08, z: 0.08 }, rail);
 
-    this.spawns = [new THREE.Vector3(-4.5, 0.08, -0.8), new THREE.Vector3(4.5, 0.08, 0.8), new THREE.Vector3(-10, 0.08, 1.5), new THREE.Vector3(10, 0.08, -1.5)];
+    this.prop('barril', new THREE.Vector3(-9, 0.6, 0), 0xd94a3a);
+    this.prop('caixa', new THREE.Vector3(8.5, 0.6, 0));
+    this.prop('caixa', new THREE.Vector3(-8, 0.5, 3.6));
+    this.prop('barril', new THREE.Vector3(8, MEZ_Y + 0.5, -4.4), 0x2b5e8a);
+
+    this.spawns = [new THREE.Vector3(-6.5, 0.08, 3.2), new THREE.Vector3(6.5, 0.08, 3.2), new THREE.Vector3(-6.5, 0.08, -3), new THREE.Vector3(6.5, 0.08, -3)];
+  }
+
+  private setHatches(k: number) {
+    const a = k * 1.45; // até ~83°
+    for (const h of this.hatches) {
+      const phi = h.side * a;
+      // dobradiça na borda de fora do poço
+      const hx = h.side * PIT_X;
+      const ox = -h.side * (PIT_X / 2);
+      const x = hx + ox * Math.cos(phi);
+      const y = -0.1 + ox * Math.sin(phi);
+      h.body.setNextKinematicTranslation({ x, y, z: 0 });
+      const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), phi);
+      h.body.setNextKinematicRotation({ x: q.x, y: q.y, z: q.z, w: q.w });
+    }
   }
 
   update(dt: number, time: number, arena: ArenaApi) {
     this.lavaMat.uniforms.t.value = time;
-    this.doorGlow.color.setHSL(0.07, 1, 0.45 + Math.sin(time * 5) * 0.08 + (this.flareT > 0 ? 0.15 : 0));
-    // Labareda: a fornalha "respira" e solta fogo para cima (só assusta... e empurra)
-    this.flareTimer -= dt;
-    if (this.flareTimer <= 0 && this.flareT <= 0) {
-      this.flareT = 1.6;
-      this.flareTimer = 13 + Math.random() * 6;
-      arena.announce('🔥 LABAREDA! O fogo sobe!', 'tip');
-      arena.sound('horn', 0.5, 0.6);
-    }
-    if (this.flareT > 0) {
-      this.flareT -= dt;
-      if (Math.random() < dt * 30) arena.effects.fire(new THREE.Vector3((Math.random() - 0.5) * 13, LAVA_Y + 2 + Math.random() * 3, (Math.random() - 0.5) * 3), 6);
-      // ar quente empurra quem está no ar para cima
-      for (const f of arena.fighters) {
-        if (!f.alive || f.removed || f.grounded) continue;
-        const p = f.pos('pelvis');
-        if (Math.abs(p.x) < 7 && p.y < 1) for (const b of f.ragdoll.bodies()) {
+    for (let i = 0; i < this.beltTex.length; i++) this.beltTex[i].offset.x += (i === 0 ? -1 : 1) * BELT_SPEED * dt * -1;
+    this.doorGlow.color.setHSL(0.07, 1, 0.42 + Math.sin(time * 5) * 0.06 + this.openK * 0.2);
+
+    // esteiras: quem está em cima é levado para o poço
+    for (const f of arena.fighters) {
+      if (!f.alive || f.removed) continue;
+      const p = f.pos('pelvis');
+      if (Math.abs(p.z) < BELT_Z + 0.1 && Math.abs(p.x) > PIT_X - 0.1 && Math.abs(p.x) < BELT_X && p.y > 0 && p.y < 1.6) {
+        const target = -Math.sign(p.x) * BELT_SPEED;
+        for (const b of f.ragdoll.bodies()) {
           const v = b.linvel();
-          b.setLinvel({ x: v.x, y: v.y + 22 * dt, z: v.z }, true);
+          b.setLinvel({ x: v.x + (target - v.x) * Math.min(1, dt * (f.grounded ? 3 : 1)), y: v.y, z: v.z }, true);
         }
       }
     }
-    // Brasas subindo da lava
+    for (const pr of this.ctx.props) {
+      if (!pr.body.isValid()) continue;
+      const p = pr.body.translation();
+      if (Math.abs(p.z) < BELT_Z && Math.abs(p.x) > PIT_X && Math.abs(p.x) < BELT_X && p.y > 0 && p.y < 1.4) {
+        const v = pr.body.linvel();
+        const target = -Math.sign(p.x) * BELT_SPEED;
+        pr.body.setLinvel({ x: v.x + (target - v.x) * Math.min(1, dt * 3), y: v.y, z: v.z }, true);
+      }
+    }
+
+    // alçapão: fechado → alerta → abre → fecha
+    this.hatchT += dt;
+    if (this.hatch === 'closed') {
+      this.hatchTimer -= dt;
+      if (this.hatchTimer <= 0) {
+        this.hatch = 'warn';
+        this.hatchT = 0;
+        arena.announce('🔥 O INCINERADOR VAI ABRIR! Saia do alçapão!', 'tip');
+        arena.sound('horn', 0.7, 0.7);
+      }
+    } else if (this.hatch === 'warn') {
+      if (this.hatchT > 2.2) {
+        this.hatch = 'open';
+        this.hatchT = 0;
+        arena.sound('crack', 1, 0.6);
+        arena.shake(0.2);
+      }
+    } else if (this.hatch === 'open') {
+      this.openK = Math.min(1, this.openK + dt * 2.5);
+      if (Math.random() < dt * 22) arena.effects.fire(new THREE.Vector3((Math.random() - 0.5) * PIT_X * 1.6, -1.5 + Math.random() * 2, (Math.random() - 0.5) * PIT_Z * 1.6), 6);
+      if (this.hatchT > 6.5) {
+        this.hatch = 'closing';
+        this.hatchT = 0;
+      }
+    } else {
+      this.openK = Math.max(0, this.openK - dt * 0.9);
+      if (this.openK <= 0) {
+        this.hatch = 'closed';
+        this.hatchTimer = Math.max(5, 9 - time * 0.03) + Math.random() * 3;
+      }
+    }
+    // tremidinha no alerta
+    const shakeK = this.hatch === 'warn' ? Math.sin(time * 50) * 0.012 : 0;
+    this.setHatches(this.openK + shakeK);
+    const blink = this.hatch === 'warn' || this.hatch === 'open' ? (Math.sin(time * 14) > 0 ? 1 : 0) : 0;
+    for (const m of this.warnLamps) m.color.setHex(blink ? 0xff2a1a : 0x441111);
+
+    // brasas subindo do fosso e do poço
     this.emberT -= dt;
     if (this.emberT <= 0) {
-      this.emberT = 0.35;
-      arena.effects.fire(new THREE.Vector3((Math.random() - 0.5) * 16, LAVA_Y + 0.2, (Math.random() - 0.5) * 6 - 1), 3);
-    }
-
-    // Escolhe uma tábua para cair (as do meio têm mais chance)
-    this.dropTimer -= dt;
-    if (this.dropTimer <= 0) {
-      this.dropTimer = Math.max(1.6, 3.6 - time * 0.03) + Math.random() * 1.5;
-      const ok = this.planks.filter((p) => p.state === 'ok');
-      if (ok.length) {
-        const weights = ok.map((p) => 1.5 - Math.abs(p.base.x) / 8);
-        let r = Math.random() * weights.reduce((a, b) => a + b, 0);
-        let pick = ok[0];
-        for (let i = 0; i < ok.length; i++) {
-          r -= weights[i];
-          if (r <= 0) {
-            pick = ok[i];
-            break;
-          }
-        }
-        pick.state = 'shaking';
-        pick.t = 0;
-        arena.sound('crack', 0.7);
-      }
-    }
-
-    for (const p of this.planks) {
-      if (p.state === 'shaking') {
-        p.t += dt;
-        // Treme: mexe o corpo (fixo) um pouquinho
-        const j = Math.sin(p.t * 60) * 0.03 * Math.min(1, p.t);
-        p.body.setTranslation({ x: p.base.x + j, y: p.base.y + Math.abs(j) * 0.5, z: p.base.z }, true);
-        if (p.t > 1.4) {
-          p.state = 'falling';
-          p.body.setTranslation({ x: p.base.x, y: p.base.y, z: p.base.z }, true);
-          p.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
-          p.body.setAngvel({ x: (Math.random() - 0.5) * 2, y: 0, z: (Math.random() - 0.5) * 3 }, true);
-          arena.sound('crack', 1, 0.7);
-        }
-      } else if (p.state === 'falling' && p.body.isValid()) {
-        if (p.body.translation().y < LAVA_Y - 1) {
-          arena.effects.fire(new THREE.Vector3(p.body.translation().x, LAVA_Y, 0), 12);
-          arena.sound('sizzle', 0.5);
-          arena.removeBody(p.body);
-          p.mesh.parent?.remove(p.mesh);
-        }
-      }
+      this.emberT = 0.3;
+      if (Math.random() < 0.5) arena.effects.fire(new THREE.Vector3((Math.random() - 0.5) * 26, LAVA_Y + 0.3, HZ + 1 + Math.random() * 3), 3);
+      else if (this.openK > 0.3) arena.effects.fire(new THREE.Vector3((Math.random() - 0.5) * 3, LAVA_Y + 0.3, (Math.random() - 0.5) * 3), 4);
     }
   }
 
   botAdvice(p: THREE.Vector3): THREE.Vector3 | null {
-    const under = this.planks.find((pl) => pl.state !== 'ok' && Math.abs(pl.base.x - p.x) < PLANK_W * 0.6);
-    if (!under || p.y < -1) return null;
-    // procura a tábua firme mais perto (ou o penhasco)
-    let best = new THREE.Vector3(p.x < 0 ? -8.5 : 8.5, 0, 0);
-    let bd = Math.abs(best.x - p.x);
-    for (const pl of this.planks) {
-      if (pl.state !== 'ok') continue;
-      const d = Math.abs(pl.base.x - p.x);
-      if (d < bd) {
-        bd = d;
-        best = new THREE.Vector3(pl.base.x, 0, 0);
-      }
+    if (p.y < -0.5) return null;
+    const danger = this.hatch === 'warn' || this.hatch === 'open';
+    const onBelt = Math.abs(p.z) < BELT_Z + 0.4 && Math.abs(p.x) < BELT_X && p.y < 1.5;
+    const nearPit = Math.abs(p.x) < PIT_X + 0.8 && Math.abs(p.z) < PIT_Z + 0.6 && p.y < 1.5;
+    if (nearPit && (danger || this.openK > 0)) {
+      return new THREE.Vector3(Math.sign(p.x || 1) * (PIT_X + 2.5), 0, p.z >= 0 ? PIT_Z + 1.2 : -(PIT_Z + 1.2));
     }
-    return best;
+    // nunca fica parado em cima da esteira perto do poço
+    if (onBelt && (danger || Math.abs(p.x) < PIT_X + 3)) return new THREE.Vector3(p.x, 0, p.z >= 0 ? 2.4 : -2.4);
+    return null;
+  }
+
+  dumpSpot(p: THREE.Vector3) {
+    if (this.openK < 0.5 || p.y > 1.5) return null;
+    return new THREE.Vector3(0, 0, 0);
+  }
+
+  safeSpot(p: THREE.Vector3) {
+    return new THREE.Vector3(Math.sign(p.x || 1) * 7, 0, 3);
   }
 
   deathAt(p: THREE.Vector3): DeathKind {
