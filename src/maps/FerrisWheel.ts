@@ -52,6 +52,7 @@ export class FerrisWheel extends GameMap {
   music = 'gelatina' as const;
   killY = -10;
   botLeaps = false;
+  botDetours = false;
   camera = {
     dir: new THREE.Vector3(0, 0.4, 1),
     minDist: 16,
@@ -292,6 +293,19 @@ export class FerrisWheel extends GameMap {
     this.ctx.root.add(g);
     this.ctx.links.add(body, g);
     return body;
+  }
+
+  botAdvice(p: THREE.Vector3): THREE.Vector3 | null {
+    // tábua tremendo (ou cedendo) embaixo de mim: pula para a firme mais perto
+    if (p.y > 2.2 || p.y < -0.5 || Math.abs(p.z) > PIER_W) return null;
+    const under = this.planks.find((pl) => Math.abs(p.x - pl.x) < PLANK * 0.6);
+    if (!under || (under.state !== 'shaking' && !(under.weak && under.load > 0))) return null;
+    let best: Plank | null = null;
+    for (const pl of this.planks) {
+      if (pl === under || pl.state !== 'ok' || Math.abs(pl.x - under.x) > PLANK * 2.5) continue;
+      if (!best || Math.abs(pl.x - p.x) < Math.abs(best.x - p.x)) best = pl;
+    }
+    return best ? new THREE.Vector3(best.x, 0, p.z * 0.5) : null;
   }
 
   safeSpot(p: THREE.Vector3): THREE.Vector3 {

@@ -69,6 +69,11 @@ export abstract class GameMap {
   spawnYaw = 0;
   /** Os robôs podem pular vãos curtos para alcançar o alvo? */
   botLeaps = true;
+  /**
+   * Robô parado na beirada pode contornar o buraco? Em mapas de
+   * plataforma que anda (elevador, cabine) o certo é esperar ela chegar.
+   */
+  botDetours = true;
   ctx!: MapContext;
 
   abstract build(): void;

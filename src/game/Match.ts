@@ -46,6 +46,7 @@ export class Match {
   private mapOrder: string[];
   private lastCount = -1;
   private suddenDeath = false;
+  private roundWinner: Fighter | null = null;
   /** Chamado quando a partida termina e o jogador escolhe o que fazer. */
   onExit: (choice: 'again' | 'setup' | 'menu') => void = () => {};
 
@@ -148,16 +149,16 @@ export class Match {
         if (alive.length <= 1 || this.timeLeft <= 0) {
           this.state = 'roundEnd';
           this.stateTime = 0;
-          // O último em pé comemora!
-          if (alive.length === 1) alive[0].celebrating = true;
+          // O último em pé comemora! (e já está garantido: se cair depois, ainda ganha)
+          this.roundWinner = alive.length === 1 ? alive[0] : null;
+          if (this.roundWinner) this.roundWinner.celebrating = true;
         }
         break;
       }
       case 'roundEnd': {
         // Espera um pouquinho (pode cair mais alguém!) e mostra o placar.
         if (this.stateTime > 1.6 && !this.overlay) {
-          const alive = a.alive;
-          const w = alive.length === 1 ? alive[0] : null; // ninguém (ou vários no fim do tempo) = empate
+          const w = this.roundWinner; // ninguém (ou vários no fim do tempo) = empate
           if (w) this.wins[w.index]++;
           this.showRoundEnd(w);
         }

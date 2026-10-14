@@ -35,6 +35,7 @@ export class CableCars extends GameMap {
   hazard = 'As cabines balançam e se cruzam no meio. Não fique para trás quando ela sair!';
   music = 'gelatina' as const;
   killY = -12;
+  botDetours = false; // espera a cabine chegar
   camera = {
     dir: new THREE.Vector3(0, 0.55, 1),
     minDist: 15,

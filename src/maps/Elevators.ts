@@ -40,6 +40,7 @@ export class Elevators extends GameMap {
   music = 'telhado' as const;
   killY = -12;
   botLeaps = true; // os robôs só pulam quando o elevador está parado no mesmo nível
+  botDetours = false;
   camera = {
     dir: new THREE.Vector3(0, 0.45, 1),
     minDist: 15,

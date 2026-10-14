@@ -15,7 +15,7 @@ import { cityBackdrop, grimeTexture, hazeBelow } from './City';
 const GX = 3.5; // centro de cada gôndola
 const GW = 2.15; // meia largura
 const GD = 0.85; // meia profundidade
-const CABLE_HP = 3;
+const CABLE_HP = 4;
 const ANCHOR_Y = 32;
 const WALL_Z = -GD - 0.55;
 
@@ -48,6 +48,7 @@ export class Scaffold extends GameMap {
   music = 'telhado' as const;
   killY = -12;
   botLeaps = false;
+  botDetours = false;
   camera = {
     dir: new THREE.Vector3(0, 0.42, 1),
     minDist: 13,
@@ -184,12 +185,34 @@ export class Scaffold extends GameMap {
     }
 
     // ---------------- a tábua que liga as duas (solta: escorrega se uma gôndola entortar)
-    const plankMesh = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.12, 0.9), this.material(0x9c6b3a, { roughness: 0.9 }));
-    plankMesh.castShadow = true;
-    plankMesh.receiveShadow = true;
+    const wood = this.material(0x9c6b3a, { roughness: 0.9 });
+    const plankMesh = new THREE.Group();
+    plankMesh.add(new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.12, 1.1), wood));
+    // travas embaixo das pontas: encaixam na borda das gôndolas (a tábua não escorrega à toa)
+    const inner = GX - GW;
+    for (const s of [-1, 1]) {
+      const tab = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.22, 1.0), wood);
+      tab.position.set(s * (inner - 0.08), -0.15, 0);
+      plankMesh.add(tab);
+    }
+    plankMesh.traverse((o) => {
+      o.castShadow = true;
+      o.receiveShadow = true;
+    });
     this.ctx.root.add(plankMesh);
     this.plank = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0, 0.07, 0).setLinearDamping(0.2).setAngularDamping(0.6));
-    const pc = world.createCollider(RAPIER.ColliderDesc.cuboid(1.8, 0.06, 0.45).setMass(30).setFriction(1).setCollisionGroups(groups(G_WORLD, G_ALL)), this.plank);
+    const pc = world.createCollider(RAPIER.ColliderDesc.cuboid(1.8, 0.06, 0.55).setMass(45).setFriction(1.2).setCollisionGroups(groups(G_WORLD, G_ALL)), this.plank);
+    for (const s of [-1, 1]) {
+      const tc = world.createCollider(
+        RAPIER.ColliderDesc.cuboid(0.05, 0.11, 0.5)
+          .setTranslation(s * (inner - 0.08), -0.15, 0)
+          .setMass(2)
+          .setFriction(1)
+          .setCollisionGroups(groups(G_WORLD, G_ALL)),
+        this.plank,
+      );
+      this.ctx.physics.register(tc, { kind: 'prop', grabbable: true });
+    }
     this.ctx.physics.register(pc, { kind: 'prop', grabbable: true });
     this.ctx.links.add(this.plank, plankMesh);
 
@@ -231,7 +254,7 @@ export class Scaffold extends GameMap {
           const k = gd.cables[i];
           if (k.hp <= 0) continue;
           const a = attach[i];
-          if (Math.abs(p.x - a.x) > 0.5 || Math.abs(p.z - a.z) > 0.6 || p.y < a.y - 0.2 || p.y > a.y + 3.5) continue;
+          if (Math.hypot(p.x - a.x, p.z - a.z) > 0.38 || p.y < a.y - 0.2 || p.y > a.y + 3.5) continue;
           this.hitCd.set(f, 0.3);
           k.hp--;
           arena.effects.sparks(p, 0xfff1a8, 10, 5);

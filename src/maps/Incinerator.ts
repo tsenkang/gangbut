@@ -344,15 +344,12 @@ export class Incinerator extends GameMap {
   }
 
   botAdvice(p: THREE.Vector3): THREE.Vector3 | null {
-    if (p.y < -0.5) return null;
-    const danger = this.hatch === 'warn' || this.hatch === 'open';
-    const onBelt = Math.abs(p.z) < BELT_Z + 0.4 && Math.abs(p.x) < BELT_X && p.y < 1.5;
-    const nearPit = Math.abs(p.x) < PIT_X + 1.4 && Math.abs(p.z) < PIT_Z + 1.4 && p.y < 1.5;
-    if (nearPit && (danger || this.openK > 0)) {
-      return new THREE.Vector3(Math.sign(p.x || 1) * (PIT_X + 2.5), 0, p.z >= 0 ? PIT_Z + 1.2 : -(PIT_Z + 1.2));
-    }
-    // nunca fica parado em cima da esteira perto do poço
-    if (onBelt && (danger || Math.abs(p.x) < PIT_X + 3)) return new THREE.Vector3(p.x, 0, p.z >= 0 ? 2.4 : -2.4);
+    if (p.y < -0.5 || p.y > 2.2) return null;
+    if (this.hatch !== 'warn' && this.hatch !== 'open') return null;
+    // em cima do alçapão: sai pela frente/fundo (pelo lado cairia na esteira)
+    if (Math.abs(p.x) < PIT_X + 0.3 && Math.abs(p.z) < PIT_Z + 0.3) return new THREE.Vector3(p.x * 0.5, 0, p.z >= 0 ? PIT_Z + 1.4 : -(PIT_Z + 1.4));
+    // na esteira perto do poço: desce para o lado
+    if (Math.abs(p.z) < BELT_Z + 0.3 && Math.abs(p.x) < PIT_X + 4) return new THREE.Vector3(p.x, 0, p.z >= 0 ? 2.4 : -2.4);
     return null;
   }
 
