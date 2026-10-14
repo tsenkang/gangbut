@@ -12,9 +12,9 @@ import { cityBackdrop, grimeTexture, hazeBelow } from './City';
 // mundo escorrega; com os quatro partidos ela despenca.
 // ------------------------------------------------------------
 
-const GX = 3.5; // centro de cada gôndola
-const GW = 2.15; // meia largura
-const GD = 0.85; // meia profundidade
+const GX = 3.8; // centro de cada gôndola
+const GW = 2.4; // meia largura
+const GD = 1.15; // meia profundidade
 const CABLE_HP = 4;
 const ANCHOR_Y = 32;
 const WALL_Z = -GD - 0.55;
@@ -102,16 +102,16 @@ export class Scaffold extends GameMap {
         const t = new THREE.CanvasTexture(c);
         t.colorSpace = THREE.SRGBColorSpace;
         t.wrapS = t.wrapT = THREE.RepeatWrapping;
-        t.repeat.set(10, 30);
+        t.repeat.set(27, 41);
         return t;
       })(),
       roughness: 0.25,
       metalness: 0.4,
     });
-    this.box({ x: 0, y: -10, z: WALL_Z - 0.5 }, { x: 26, y: 80, z: 1 }, glass);
+    this.box({ x: 0, y: -21.5, z: WALL_Z - 0.5 }, { x: 70, y: 107, z: 1 }, glass);
     // marquise / topo do prédio onde os cabos estão presos
     const steel = this.material(0x5d636c, { roughness: 0.5, metalness: 0.7 });
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(26, 1.2, 3), this.material(0xb9b3a8, { roughness: 0.9 }));
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(70, 1.2, 3), this.material(0xb9b3a8, { roughness: 0.9 }));
     roof.position.set(0, ANCHOR_Y + 0.6, WALL_Z + 0.5);
     this.deco(roof, false);
     for (const s of [-1, 1]) {
@@ -135,8 +135,9 @@ export class Scaffold extends GameMap {
       };
       add(RAPIER.ColliderDesc.cuboid(GW, 0.12, GD).setTranslation(0, -0.12, 0)); // piso
       add(RAPIER.ColliderDesc.cuboid(GW, 0.05, 0.05).setTranslation(0, 1.0, GD)); // corrimão da frente
+      add(RAPIER.ColliderDesc.cuboid(GW, 0.04, 0.04).setTranslation(0, 0.5, GD)); // barra do meio
       add(RAPIER.ColliderDesc.cuboid(GW, 0.55, 0.05).setTranslation(0, 0.5, -GD)); // grade do fundo (lado do prédio)
-      add(RAPIER.ColliderDesc.cuboid(0.05, 0.5, GD).setTranslation(s * GW, 0.5, 0)); // ponta de fora fechada
+      add(RAPIER.ColliderDesc.cuboid(0.05, 0.85, GD).setTranslation(s * GW, 0.85, 0)); // ponta de fora fechada (alta)
 
       const g = new THREE.Group();
       const deck = new THREE.Mesh(new THREE.BoxGeometry(GW * 2, 0.24, GD * 2), deckMat);
@@ -148,11 +149,14 @@ export class Scaffold extends GameMap {
       const bar = new THREE.Mesh(new THREE.BoxGeometry(GW * 2, 0.1, 0.1), yellow);
       bar.position.set(0, 1.0, GD);
       g.add(bar);
+      const mid = new THREE.Mesh(new THREE.BoxGeometry(GW * 2, 0.08, 0.08), yellow);
+      mid.position.set(0, 0.5, GD);
+      g.add(mid);
       const back = new THREE.Mesh(new THREE.BoxGeometry(GW * 2, 1.1, 0.08), yellow);
       back.position.set(0, 0.5, -GD);
       g.add(back);
-      const endW = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.0, GD * 2), yellow);
-      endW.position.set(s * GW, 0.5, 0);
+      const endW = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.7, GD * 2), yellow);
+      endW.position.set(s * GW, 0.85, 0);
       g.add(endW);
       for (const sx of [-GW, GW]) {
         const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.05, 0.1), yellow);

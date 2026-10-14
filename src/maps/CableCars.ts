@@ -82,7 +82,13 @@ export class CableCars extends GameMap {
       // banco de espera (dá para subir)
       this.box({ x: s * (STATION_X + 5.5), y: 0.4, z: -2.8 }, { x: 2.4, y: 0.8, z: 0.8 }, wood);
       // polia grande (onde o cabo dá a volta)
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(1.75, 1.75, 0.25, 28), this.material(0x333a44, { metalness: 0.6 }));
+      const wheel = new THREE.Mesh(new THREE.TorusGeometry(1.45, 0.12, 8, 32), this.material(0x6a737e, { metalness: 0.7, roughness: 0.35 }));
+      wheel.rotation.x = Math.PI / 2;
+      for (let k = 0; k < 4; k++) {
+        const spoke = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.08, 0.08), this.material(0x6a737e, { metalness: 0.7 }));
+        spoke.rotation.z = (k * Math.PI) / 4;
+        wheel.add(spoke);
+      }
       wheel.position.set(s * (STATION_X + 1.6), ROPE_Y, 0);
       this.deco(wheel);
       this.wheels.push(wheel);
@@ -229,6 +235,6 @@ export class CableCars extends GameMap {
       c.body.setNextKinematicTranslation(pos);
       c.body.setNextKinematicRotation(q);
     }
-    for (const w of this.wheels) w.rotation.y = time * 0.8;
+    for (const w of this.wheels) w.rotation.z = time * 0.8;
   }
 }

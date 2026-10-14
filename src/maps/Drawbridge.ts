@@ -66,10 +66,16 @@ export class Drawbridge extends GameMap {
       fog: false,
       vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
       fragmentShader: `uniform float t; varying vec2 vUv;
-        void main(){ vec2 p = vUv * vec2(40.0, 60.0);
-          float w = sin(p.x*0.7 + t*0.8) * sin(p.y*0.5 - t*1.6) + sin(p.y*1.3 + t*2.0)*0.4;
-          vec3 c = mix(vec3(0.16,0.26,0.3), vec3(0.32,0.45,0.48), smoothstep(-0.5, 1.2, w));
-          float d = abs(vUv.x - 0.5) * 2.0; c = mix(c, vec3(0.6,0.58,0.6), smoothstep(0.5, 1.0, d));
+        float n(vec2 p){ return sin(p.x)*sin(p.y); }
+        void main(){ vec2 p = vUv * vec2(60.0, 300.0);
+          // ondinhas em várias escalas (nada de manchas grandes)
+          float w = n(p*0.9 + vec2(t*0.7, -t*1.4)) * 0.5 + n(p*2.1 + vec2(-t*1.1, t*0.9)) * 0.3 + n(p*4.3 + vec2(t*1.8, t*1.3)) * 0.2;
+          vec3 deep = vec3(0.13,0.22,0.27), lite = vec3(0.24,0.36,0.40);
+          vec3 c = mix(deep, lite, smoothstep(-0.6, 0.6, w));
+          // brilhos do céu nas cristas
+          c += vec3(0.9,0.75,0.6) * smoothstep(0.62, 0.8, w) * 0.35;
+          // margem mais clara perto das bordas
+          float d = abs(vUv.x - 0.5) * 2.0; c = mix(c, vec3(0.42,0.40,0.38), smoothstep(0.82, 1.0, d));
           gl_FragColor = vec4(c, 1.0); }`,
     });
     const river = new THREE.Mesh(new THREE.PlaneGeometry(60, 300), this.riverMat);
@@ -169,8 +175,14 @@ export class Drawbridge extends GameMap {
     this.ship.position.set(0, RIVER_Y, -80);
     this.deco(this.ship, false);
 
+    // margens (cais de pedra e rua) dos dois lados do rio
+    const quay = new THREE.MeshStandardMaterial({ map: grimeTexture('#6b625c', [20, 2], { tiles: 4 }), roughness: 1 });
+    for (const s of [-1, 1]) {
+      this.box({ x: s * 60, y: RIVER_Y + 1.2, z: 0 }, { x: 60, y: 2.4, z: 300 }, quay, { collide: false, shadow: false });
+    }
+
     // cidade dos dois lados do rio
-    const city = cityBackdrop(this.ctx.root, { below: 8, radius: [30, 100], count: 40, keepClear: (x) => Math.abs(x) < 20, walls: ['#5d5763', '#6b6370', '#4f5866', '#625b60'] });
+    const city = cityBackdrop(this.ctx.root, { ground: false, below: 4.6, radius: [36, 100], count: 40, keepClear: (x) => Math.abs(x) < 36, walls: ['#5d5763', '#6b6370', '#4f5866', '#625b60'] });
     this.blink.push(...city.blink);
     hazeBelow(this.ctx.root, 0xb7a9aa, [[-20, 0.4]]);
 

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GameMap, hazardStripes, type ArenaApi, type DeathKind } from './MapBase';
+import { canvasTexture, GameMap, hazardStripes, type ArenaApi, type DeathKind } from './MapBase';
 import { RAPIER } from '../physics/Physics';
 import { grimeTexture } from './City';
 import type { Fighter } from '../characters/Fighter';
@@ -147,11 +147,52 @@ export class Aquarium extends GameMap {
     // salão: paredes escuras com janelas azuis
     const hall = this.material(0x16263a, { roughness: 1 });
     this.box({ x: 0, y: 4, z: -TZ - 3 }, { x: 40, y: 14, z: 1 }, hall, { collide: false });
-    for (let i = 0; i < 5; i++) {
-      const win = new THREE.Mesh(new THREE.CircleGeometry(1.3, 24), new THREE.MeshBasicMaterial({ color: 0x2a8cc4 }));
-      win.position.set(-12 + i * 6, 5, -TZ - 2.45);
-      this.deco(win, false);
-    }
+    // janelão do oceanário no fundo (água azul, raios de luz e peixes)
+    const ocean = canvasTexture(1024, 256, (g) => {
+      const grd = g.createLinearGradient(0, 0, 0, 256);
+      grd.addColorStop(0, '#2f9fd6');
+      grd.addColorStop(0.55, '#14628f');
+      grd.addColorStop(1, '#082a45');
+      g.fillStyle = grd;
+      g.fillRect(0, 0, 1024, 256);
+      for (let i = 0; i < 9; i++) {
+        const x = Math.random() * 1024;
+        g.fillStyle = 'rgba(200,240,255,0.08)';
+        g.beginPath();
+        g.moveTo(x, 0);
+        g.lineTo(x + 40, 0);
+        g.lineTo(x + 110, 256);
+        g.lineTo(x + 50, 256);
+        g.fill();
+      }
+      g.fillStyle = 'rgba(5,30,50,0.55)';
+      for (let i = 0; i < 26; i++) {
+        const x = Math.random() * 1024;
+        const y = 60 + Math.random() * 170;
+        const sz = 6 + Math.random() * 14;
+        g.beginPath();
+        g.ellipse(x, y, sz, sz * 0.45, 0, 0, Math.PI * 2);
+        g.moveTo(x + sz, y);
+        g.lineTo(x + sz * 1.7, y - sz * 0.5);
+        g.lineTo(x + sz * 1.7, y + sz * 0.5);
+        g.fill();
+      }
+      // pedras e algas no fundo
+      g.fillStyle = '#06202f';
+      for (let x = 0; x < 1024; x += 30) g.fillRect(x, 230 + Math.random() * 10, 34, 40);
+    });
+    const glassWin = new THREE.Mesh(new THREE.PlaneGeometry(36, 9), new THREE.MeshBasicMaterial({ map: ocean, toneMapped: false }));
+    glassWin.position.set(0, 4.2, -TZ - 2.44);
+    this.deco(glassWin, false);
+    const frame = this.material(0x0c1622, { roughness: 0.8 });
+    for (const x of [-18, -9, 0, 9, 18]) this.box({ x, y: 4.2, z: -TZ - 2.35 }, { x: 0.35, y: 9.2, z: 0.25 }, frame, { collide: false });
+    for (const y of [-0.4, 8.8]) this.box({ x: 0, y, z: -TZ - 2.35 }, { x: 36.4, y: 0.4, z: 0.25 }, frame, { collide: false });
+    // paredes laterais e piso do salão em volta do tanque
+    for (const sx of [-1, 1]) this.box({ x: sx * 20, y: 4, z: 0 }, { x: 1, y: 14, z: 30 }, hall, { collide: false });
+    // piso do salão em volta do tanque (mais baixo que a borda; só desenho)
+    const hallFloor = this.material(0x13202e, { roughness: 1 });
+    for (const sx of [-1, 1]) this.box({ x: sx * 15.2, y: -2.2, z: 0 }, { x: 9.6, y: 0.4, z: 30 }, hallFloor, { collide: false, shadow: false });
+    for (const sz of [-1, 1]) this.box({ x: 0, y: -2.2, z: sz * 10.6 }, { x: 20.8, y: 0.4, z: 8.8 }, hallFloor, { collide: false, shadow: false });
     // baldes de comida de peixe e caixas na borda
     this.prop('barril', new THREE.Vector3(-TX + 0.8, 0.5, -TZ + 0.8), 0x2a9d8f);
     this.prop('caixa', new THREE.Vector3(TX - 0.8, 0.5, TZ - 0.8));

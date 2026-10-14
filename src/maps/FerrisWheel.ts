@@ -82,7 +82,7 @@ export class FerrisWheel extends GameMap {
       // fim de tarde enevoado sobre a cidade
       skyTop: 0x34476e,
       skyBottom: 0xf2a77e,
-      fog: { color: 0xb59a9f, near: 28, far: 115 },
+      fog: { color: 0xb59a9f, near: 55, far: 230 },
       sunColor: 0xffd2a8,
       sunIntensity: 2.2,
       sunPos: new THREE.Vector3(-12, 22, 14),
@@ -223,7 +223,11 @@ export class FerrisWheel extends GameMap {
 
     // ---------------- cidade e neblina lá embaixo
     // a cidade lá longe, do outro lado da baía
-    const city = cityBackdrop(this.ctx.root, { below: -WATER_Y, radius: [70, 130], count: 34, keepClear: (_x, z) => z > -20, walls: ['#5d5763', '#6b6370', '#4f5866', '#625b60'] });
+    // orla da cidade (cais de concreto) atrás da roda: os prédios ficam em terra firme
+    const shore = this.material(0x8a8378, { roughness: 1 });
+    this.box({ x: 0, y: WATER_Y + 0.2, z: -170 }, { x: 600, y: 2.4, z: 280 }, shore, { collide: false, shadow: false });
+    this.box({ x: 0, y: WATER_Y + 1.5, z: -30.2 }, { x: 600, y: 0.3, z: 0.6 }, this.material(0xd9d2c3), { collide: false, shadow: false });
+    const city = cityBackdrop(this.ctx.root, { ground: false, below: -WATER_Y, radius: [70, 130], count: 34, keepClear: (_x, z) => z > -36, walls: ['#5d5763', '#6b6370', '#4f5866', '#625b60'] });
     this.blink.push(...city.blink);
 
     this.prop('barril', new THREE.Vector3(9.5, 0.5, -1.5), 0x2a9d8f);

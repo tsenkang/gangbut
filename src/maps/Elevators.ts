@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GameMap, hazardStripes, type ArenaApi } from './MapBase';
 import { RAPIER, G_WORLD, G_ALL, groups } from '../physics/Physics';
-import { cityBackdrop, grimeTexture, hazeBelow, iBeamGeometry } from './City';
+import { cityBackdrop, facadeTextures, grimeTexture, hazeBelow, iBeamGeometry } from './City';
 
 // ------------------------------------------------------------
 // Mapa 8 — ELEVADORES
@@ -174,6 +174,13 @@ export class Elevators extends GameMap {
       this.cars.push({ body, x, phase, y, speed: 0, cables, fallV: -1, respawn: 0 });
     });
 
+    // o prédio em obras logo atrás dos elevadores (desce até a rua)
+    const fac = facadeTextures('#8a7d70', false, 0.05);
+    fac.color.repeat.set(5, 6);
+    fac.glow.repeat.set(5, 6);
+    const building = new THREE.Mesh(new THREE.BoxGeometry(46, 72, 6), new THREE.MeshStandardMaterial({ map: fac.color, emissiveMap: fac.glow, emissive: 0xffffff, emissiveIntensity: 0.2, roughness: 0.6, metalness: 0.2 }));
+    building.position.set(0, HIGH + 2 - 36, -6.6);
+    this.deco(building, false);
     const city = cityBackdrop(this.ctx.root, { below: 60, radius: [40, 115], count: 40, walls: ['#5d5763', '#6b6370', '#4f5866', '#625b60'] });
     this.blink.push(...city.blink);
     hazeBelow(this.ctx.root, 0xcdbfc0, [

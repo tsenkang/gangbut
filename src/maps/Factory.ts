@@ -169,11 +169,28 @@ export class Factory extends GameMap {
     this.box({ x: 9, y: 1.1, z: -5.6 }, { x: 0.12, y: 2.2, z: 0.12 }, rail);
     this.box({ x: 8.95, y: 0.6, z: 4.4 }, { x: 0.1, y: 0.1, z: 5.8 }, rail);
     for (const z of [1.7, 4.4, 7.1]) this.box({ x: 8.95, y: 0.3, z }, { x: 0.1, y: 0.6, z: 0.1 }, rail);
-    // Buraco escuro embaixo (cenário)
-    const pit = new THREE.Mesh(new THREE.PlaneGeometry(40, 30), new THREE.MeshBasicMaterial({ color: 0x0b0710 }));
+    // Parede lateral do galpão (lado da máquina) e a da frente lá embaixo
+    const brick = new THREE.MeshStandardMaterial({ map: grimeTexture('#7a4234', [6, 3], { tiles: 8, dark: 'rgba(0,0,0,0.25)' }), roughness: 0.95 });
+    this.box({ x: -11.6, y: 3, z: 0.5 }, { x: 1.2, y: 12, z: 15 }, brick);
+    // Fosso do lixo (depois da esteira): paredes de tijolo, entulho e um brilho de forno lá no fundo
+    const pitWall = new THREE.MeshStandardMaterial({ map: grimeTexture('#4a2a24', [3, 3], { tiles: 6, dark: 'rgba(0,0,0,0.4)' }), roughness: 1 });
+    this.box({ x: 16.5, y: -2.5, z: 0.5 }, { x: 1, y: 15, z: 15 }, pitWall, { collide: false });
+    for (const z of [-6.6, 7.6]) this.box({ x: 12.8, y: -4.5, z }, { x: 8.4, y: 9, z: 0.6 }, pitWall, { collide: false });
+    this.box({ x: 9.05, y: -5, z: 0.5 }, { x: 0.3, y: 8.5, z: 14 }, pitWall, { collide: false, shadow: false });
+    const junk = this.material(0x3b3028, { roughness: 1 });
+    for (let i = 0; i < 18; i++) {
+      const j = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5 + Math.random() * 1.1), junk);
+      j.position.set(10 + Math.random() * 6, -8.6 + Math.random() * 0.6, -5 + Math.random() * 11);
+      j.rotation.set(Math.random() * 3, Math.random() * 3, 0);
+      this.deco(j, false);
+    }
+    const pit = new THREE.Mesh(new THREE.PlaneGeometry(40, 30), new THREE.MeshBasicMaterial({ color: 0x1a0d08 }));
     pit.rotation.x = -Math.PI / 2;
     pit.position.y = -9;
     this.deco(pit, false);
+    const ember = new THREE.PointLight(0xff5a1a, 40, 14, 1.6);
+    ember.position.set(12.5, -6.5, 0.5);
+    this.ctx.root.add(ember);
 
     // A prensa
     const pressGroup = new THREE.Group();

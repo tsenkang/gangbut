@@ -41,6 +41,8 @@ export interface MapContext {
 }
 
 export interface Lighting {
+  /** Nuvens no céu (padrão: só nos mapas abertos). */
+  clouds?: boolean;
   skyTop: number;
   skyBottom: number;
   fog?: { color: number; near: number; far: number };
@@ -267,6 +269,8 @@ export abstract class GameMap {
     );
     sky.renderOrder = -1;
     root.add(sky);
+    // Nuvens ao longe (mapas a céu aberto)
+    if (L.clouds ?? (!L.fog || L.fog.far >= 80)) this.addClouds(L);
 
     const hemi = new THREE.HemisphereLight(L.hemiSky, L.hemiGround, L.hemiIntensity);
     root.add(hemi);
@@ -291,6 +295,40 @@ export abstract class GameMap {
       root.userData.fog = new THREE.Fog(L.fog.color, L.fog.near, L.fog.far);
     }
     return { sun, hemi };
+  }
+
+  private addClouds(L: Lighting) {
+    const top = new THREE.Color(L.skyTop);
+    const bottom = new THREE.Color(L.skyBottom);
+    const lum = bottom.r * 0.3 + bottom.g * 0.59 + bottom.b * 0.11;
+    const night = lum < 0.25;
+    const tex = canvasTexture(256, 128, (g) => {
+      for (let i = 0; i < 14; i++) {
+        const x = 40 + Math.random() * 176;
+        const y = 50 + Math.random() * 40;
+        const r = 22 + Math.random() * 34;
+        const grd = g.createRadialGradient(x, y, 0, x, y, r);
+        grd.addColorStop(0, 'rgba(255,255,255,0.95)');
+        grd.addColorStop(0.6, 'rgba(255,255,255,0.55)');
+        grd.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = grd;
+        g.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+    });
+    const tint = night ? top.clone().lerp(new THREE.Color(0x8890b0), 0.35) : new THREE.Color(0xffffff).lerp(bottom, 0.25);
+    const group = new THREE.Group();
+    for (let i = 0; i < 16; i++) {
+      const mat = new THREE.SpriteMaterial({ map: tex, color: tint, transparent: true, opacity: night ? 0.28 : 0.85, depthWrite: false, fog: false });
+      const sp = new THREE.Sprite(mat);
+      const a = Math.random() * Math.PI * 2;
+      const r = 200 + Math.random() * 60;
+      sp.position.set(Math.cos(a) * r, 25 + Math.random() * 70, Math.sin(a) * r);
+      const w = 70 + Math.random() * 90;
+      sp.scale.set(w, w * 0.45, 1);
+      sp.renderOrder = -1;
+      group.add(sp);
+    }
+    this.ctx.root.add(group);
   }
 
   dispose() {
