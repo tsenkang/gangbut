@@ -144,7 +144,7 @@ export class Bot implements InputSource {
     let bestScore = Infinity;
     for (const e of foes) {
       let score = e.pos('chest').distanceTo(me);
-      if (this.difficulty !== 'facil' && e.ko) score -= 3;
+      if (this.difficulty !== 'facil' && (e.ko || e.downT > 0)) score -= 3;
       if (this.difficulty === 'dificil' && e.dizzy > 60) score -= 1.5;
       if (e === this.target) score -= 1; // não fica trocando toda hora
       if (score < bestScore) {
@@ -160,7 +160,7 @@ export class Bot implements InputSource {
       // segurando uma caixa: joga no inimigo
       this.out.punchL = true;
       this.mode = 'chase';
-    } else if (this.mode !== 'grab' && best && (best.ko ? Math.random() < this.p.grabChance * 2 : Math.random() < this.p.grabChance * 0.4)) {
+    } else if (this.mode !== 'grab' && best && (best.ko || best.downT > 0 ? Math.random() < this.p.grabChance * 2 : Math.random() < this.p.grabChance * 0.4)) {
       this.mode = 'grab';
       this.modeTime = 0;
     } else if (this.mode === 'grab' && this.modeTime > 3) this.mode = 'chase';
@@ -300,7 +300,7 @@ export class Bot implements InputSource {
     this.wantDir.copy(to).multiplyScalar(dist > 1.1 ? 1 : 0.15);
     if (this.mode === 'grab') {
       o.grabL = o.grabR = dist < 1.8;
-      o.armY = this.target.ko ? -0.7 : 0;
+      o.armY = this.target.ko || this.target.downT > 0 ? -0.7 : 0;
       if (f.hands.L.holding() || f.hands.R.holding()) {
         if (Math.random() < this.p.carry) {
           this.mode = 'carry';

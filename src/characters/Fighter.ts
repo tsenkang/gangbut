@@ -29,6 +29,8 @@ export type FighterEvent =
   | 'bigthrow'
   | 'bigpunch'
   | 'charge'
+  | 'shove'
+  | 'down'
   | 'scream';
 
 /** O que o lutador precisa saber do mundo à sua volta. */
@@ -38,7 +40,7 @@ export interface FighterEnv {
   fighters: Fighter[];
   camFwd: THREE.Vector3;
   camRight: THREE.Vector3;
-  onHit(attacker: Fighter | null, victim: Fighter, power: number, point: THREE.Vector3, dir: THREE.Vector3, kind: HitKind): void;
+  onHit(attacker: Fighter | null, victim: Fighter, power: number, point: THREE.Vector3, dir: THREE.Vector3, kind: HitKind, part?: PartName): void;
   onPropHit(attacker: Fighter, body: RAPIER.RigidBody, point: THREE.Vector3, dir: THREE.Vector3, power: number): void;
   onEvent(f: Fighter, ev: FighterEvent, amount?: number): void;
 }
@@ -151,6 +153,10 @@ export class Fighter {
   private screamT = 0;
   /** Depois da voadora: cai de costas, molinho, por um instante. */
   private flopT = 0;
+  /** Levou um tombo: fica no chão um instante (sem estar desmaiado). */
+  downT = 0;
+  /** Espera entre um tranco de ombro e outro. */
+  private shoveCd = 0;
 
   constructor(
     public index: number,
@@ -246,10 +252,10 @@ export class Fighter {
       }
     }
 
-    const canAct = this.alive && !this.ko;
+    const canAct = this.alive && !this.ko && this.downT <= 0;
 
     // ----- força dos músculos
-    let targetStrength = canAct ? 1 : 0.02;
+    let targetStrength = canAct ? 1 : this.ko || !this.alive ? 0.02 : 0.07;
     if (canAct && this.grabbedBy >= 2) targetStrength = 0.55;
     if (canAct && this.liftedBy && this.liftedBy.lifting === this) targetStrength = 0.15;
     else if (this.liftedBy) this.liftedBy = null;
@@ -328,7 +334,27 @@ export class Fighter {
           bd = flat;
           this.grabAim = c.add(new THREE.Vector3(0, 0.12, 0));
         }
+        // Ninguém caído: mira em quem está em pé bem na frente (pega no peito/ombro)
+        if (!this.grabAim) {
+          let bs = 1.7;
+          for (const o of env.fighters) {
+            if (o === this || o.removed || !o.alive) continue;
+            const c = o.pos('chest');
+            const d = c.clone().sub(me);
+            const flat = Math.hypot(d.x, d.z);
+            if (flat > bs || Math.abs(d.y) > 0.8 || (d.x * f.x + d.z * f.z) / (flat || 1) < 0.5) continue;
+            bs = flat;
+            this.grabAim = c.addScaledVector(d.setY(0).normalize(), -0.2).add(new THREE.Vector3(0, 0.15, 0));
+          }
+        }
         if (this.grabAim) this.faceNearest(env, 2, 0.2);
+      }
+      // Uma mão já segura alguém: a outra mão vai no mesmo (para poder erguer)
+      if (!this.grabAim && inp.grabL && inp.grabR) {
+        const held = [this.hands.L, this.hands.R].find((h) => h.holding() && h.targetInfo?.kind === 'fighter');
+        const other = held === this.hands.L ? this.hands.R : this.hands.L;
+        const o = held?.targetInfo?.owner as Fighter | undefined;
+        if (held && !other.holding() && o && !o.removed) this.grabAim = o.pos('chest');
       }
 
       // Agarrar enquanto segura o gatilho
@@ -339,9 +365,14 @@ export class Fighter {
           const wasWanting = side === 'L' ? this.prev.grabL : this.prev.grabR;
           if (!wasWanting) this.faceNearest(env, 2.2, 0.5);
           if (hand.tryGrab(!!this.grabAim)) env.onEvent(this, 'grab');
-        } else if (!want && hand.holding()) hand.release();
+        } else if (!want && hand.holding()) {
+          // Erguendo alguém acima da cabeça e soltou? Arremessa!
+          if (this.lifting && hand.targetInfo?.owner === this.lifting) this.throwHeld(env, side);
+          else hand.release();
+        }
       }
       this.updateLift(dt);
+      this.shoulderBump(env, dt);
     } else {
       if (this.lifting) this.stopLift();
       // Desmaiado: solta tudo.
@@ -474,6 +505,35 @@ export class Fighter {
     this.lifting = null;
   }
 
+  /**
+   * Tranco de ombro: correndo e trombando em alguém, ele é empurrado
+   * (e quem já está tonto vai para o chão).
+   */
+  private shoulderBump(env: FighterEnv, dt: number) {
+    this.shoveCd -= dt;
+    if (this.shoveCd > 0 || !this.grounded || this.speed < 3.3) return;
+    if (this.hands.L.holding() || this.hands.R.holding()) return;
+    const me = this.pos('chest');
+    const v = this.vel('chest').sub(this.groundVel).setY(0);
+    const dir = v.clone().normalize();
+    for (const o of env.fighters) {
+      if (o === this || o.removed || !o.alive) continue;
+      const d = o.pos('chest').sub(me);
+      if (d.length() > 0.95 || d.setY(0).normalize().dot(dir) < 0.6) continue;
+      this.shoveCd = 0.8;
+      const push = dir.clone().setY(0.25).normalize();
+      o.knock(push, 1.8 + this.speed * 0.3);
+      o.lastAttacker = this;
+      o.lastAttackerAt = env.time;
+      o.addDizzy(6);
+      if (o.dizzy > 45 || !o.grounded) o.knockDown(0.7);
+      // eu também perco um pouquinho o equilíbrio
+      this.hurtT = Math.max(this.hurtT, 0.15);
+      env.onEvent(this, 'shove');
+      return;
+    }
+  }
+
   /** Vira um pouco para o inimigo mais perto que estiver na frente. */
   private faceNearest(env: FighterEnv, range: number, amount: number) {
     const me = this.pos('chest');
@@ -577,11 +637,37 @@ export class Fighter {
     this.jelly.chest.v -= 3 + power * 0.08;
     this.jelly.head.v += 3 + power * 0.06;
     this.addDizzy(power);
+    // Socaram minha mão/braço: a mão escorrega (quem está pendurado solta!)
+    if (part === 'foreL' || part === 'armL') this.hands.L.release(0.5);
+    if (part === 'foreR' || part === 'armR') this.hands.R.release(0.5);
+    if (this.ko || !this.alive) return;
+    // Pancada forte faz largar tudo e (às vezes) levar um tombo
+    if (power >= 16) {
+      this.hands.L.release(0.4);
+      this.hands.R.release(0.4);
+    }
+    if (power >= 20 || (this.dizzy > 60 && power >= 11)) this.knockDown(0.45 + Math.min(0.85, power * 0.02));
   }
+
+  /** Tombo: cai mole no chão por alguns instantes e levanta cambaleando. */
+  knockDown(t: number) {
+    if (!this.alive || this.ko) return;
+    if (this.downT <= 0) this._pendingDown = true;
+    this.downT = Math.max(this.downT, t);
+  }
+  private _pendingDown = false;
 
   private updateHealth(env: FighterEnv, dt: number) {
     this.hurtT -= dt;
     this.flopT -= dt;
+    if (this.downT > 0) {
+      this.downT -= dt;
+      if (this.downT <= 0 && this.alive && !this.ko) this.wakeT = Math.max(this.wakeT, 0.9); // levanta meio tonto
+    }
+    if (this._pendingDown) {
+      this._pendingDown = false;
+      env.onEvent(this, 'down');
+    }
     this.impactGrace -= dt;
     if (this._pendingKo) {
       this._pendingKo = false;
@@ -685,7 +771,7 @@ export class Fighter {
     // Mirando em alguém caído e sem andar: dá uns passinhos até ele
     if (this.grabAim && moveMag < 0.15) {
       const d = this.grabAim.clone().sub(this.pos('pelvis')).setY(0);
-      if (d.length() > 0.75) target.copy(d.normalize().multiplyScalar(1.8));
+      if (d.length() > 0.75) target.copy(d.normalize().multiplyScalar(1.8)).add(this.groundVel.clone().setY(0));
     }
 
     // No ar só controla se estiver mexendo o analógico (o embalo continua),
@@ -762,7 +848,7 @@ export class Fighter {
     roll += Math.sin(t * 3.3 + 1) * 0.3 * wob;
     if (this.hurtT > 0) pitch -= 0.5; // se encolhe para trás ao levar soco
     if (this.crouchT >= 0) pitch += 0.25; // agachadinha antes do pulo
-    if (this.grabAim) pitch += 0.75; // se curva para pegar alguém no chão
+    if (this.grabAim) pitch += this.grabAim.y < this.pos('chest').y - 0.3 ? 0.75 : 0.15; // se curva para pegar alguém no chão
     const hb = this.headbutt.t;
     if (hb >= 0) pitch += hb < 0.08 ? -0.5 : hb < 0.35 ? 1.1 : 0.3;
     const kt = this.kick.t;
@@ -1060,7 +1146,7 @@ export class Fighter {
         dir.y = Math.max(dir.y, 0.15);
         dir.normalize();
         const mult = info.part === 'head' ? 1.35 : 1;
-        env.onHit(this, victim, power * mult, p.clone(), dir, kind);
+        env.onHit(this, victim, power * mult, p.clone(), dir, kind, info.part as PartName);
       } else if (info.kind === 'prop') {
         const body = c.parent();
         if (!body || a.hit.size > 3) return;

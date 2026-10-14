@@ -57,6 +57,11 @@ Os botões de ombro (LB/RB, L1/R1) também agarram. O direcional também anda.
 - No ar, **soco** vira **voadora** com as duas pernas: forte, mas você cai de costas depois.
 - Segurando alguém com as duas mãos, **erga os braços** (I / analógico direito) para levantá-lo acima da cabeça; o arremesso de lá de cima (ou correndo) vai muito mais longe.
 - Para pegar alguém caído, segure **agarrar** perto dele: o boneco se abaixa e mira sozinho.
+- Erguendo alguém acima da cabeça, **soltar o agarrar** também arremessa.
+- Golpe forte (socão, voadora, cabeçada ou soco em quem está tonto) dá um **tombo**: o boneco cai,
+  larga o que estava segurando e levanta cambaleando.
+- Soque a **mão** de quem está pendurado numa borda: ele solta!
+- Correndo, você dá um **tranco** em quem estiver na frente (quem está tonto vai ao chão).
 - Desmaiado? Aperte botões rápido para acordar antes.
 - Alguém te segurando? Aperte botões sem parar para **escapar**.
 - Quanto mais você apanha, mais a barra de **tontura** enche; cheia = nocaute.

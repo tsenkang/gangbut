@@ -139,11 +139,12 @@ export class Arena implements ArenaApi {
   }
 
   // ------------------------------------------------ golpes
-  private onHit(attacker: Fighter | null, victim: Fighter, power: number, point: THREE.Vector3, dir: THREE.Vector3, kind: HitKind) {
+  private onHit(attacker: Fighter | null, victim: Fighter, power: number, point: THREE.Vector3, dir: THREE.Vector3, kind: HitKind, part?: PartName) {
     if (!victim.alive) return;
     if (kind === 'fall') {
       if (power < 5) return;
       victim.addDizzy(power);
+      if (power > 30 && !victim.lifting && !victim.hands.L.holding() && !victim.hands.R.holding()) victim.knockDown(0.6 + Math.min(0.8, power * 0.01)); // batida feia: tombo
       const p = victim.pos('chest');
       this.effects.dust(p.clone().setY(p.y - 0.6), Math.min(2, power / 25));
       this.sound(power > 25 ? 'heavy' : 'land', Math.min(1, power / 30));
@@ -156,7 +157,7 @@ export class Arena implements ArenaApi {
     power *= this.damageMult;
     const knock = kind === 'punch' ? 2.1 : kind === 'bigpunch' ? 4.6 : kind === 'headbutt' ? 3.8 : kind === 'kick' ? 5 : 3;
     const wasKo = victim.ko;
-    victim.receiveHit(power, dir, partAt(victim, point), knock);
+    victim.receiveHit(power, dir, part ?? partAt(victim, point), knock);
     if (attacker) {
       victim.lastAttacker = attacker;
       victim.lastAttackerAt = this.time;
@@ -210,6 +211,14 @@ export class Arena implements ArenaApi {
         this.sound('cheer', 0.5);
         this.shake(0.3);
         this.effects.text(f.pos('head').add(new THREE.Vector3(0, 1.4, 0)), pick(['LÁ VAI!', 'ARREMESSO!', 'VOA!']), 'big');
+        break;
+      case 'shove':
+        this.sound('punch', 0.6, 0.7);
+        this.sound('grunt', 0.5, voice);
+        if (this.time - this.lastPopAt > 0.6 && (this.lastPopAt = this.time) >= 0) this.effects.text(f.pos('head').add(new THREE.Vector3(0, 0.8, 0)), 'TRANCO!');
+        break;
+      case 'down':
+        this.effects.dust(f.pos('pelvis').setY(f.pos('pelvis').y - 0.4), 0.6);
         break;
       case 'charge':
         this.sound('whoosh', 0.25, 0.45);

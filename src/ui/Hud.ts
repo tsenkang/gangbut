@@ -94,8 +94,9 @@ export class Hud {
   /** Qual dica mostrar em cima do boneco do jogador agora? */
   private hintFor(f: Fighter, L: ControlLabels): string {
     if (f.ko) return `Desmaiado! Aperte ${L.jump} rápido para acordar!`;
+    if (f.downT > 0) return 'Levou um tombo! Levantando...';
     if (f.liftedBy) return `Te ergueram! Aperte ${L.jump} sem parar!`;
-    if (f.lifting) return `${L.punch.split(' / ')[0]}: ARREMESSAR lá de cima!`;
+    if (f.lifting) return `${L.punch.split(' / ')[0]} ou solte ${L.grab}: ARREMESSAR!`;
     if (f.grabbedBy > 0) return `Te pegaram! Aperte ${L.jump} sem parar!`;
     const holdingFoe = [f.hands.L, f.hands.R].some((hd) => hd.holding() && hd.targetInfo?.kind === 'fighter');
     const holdingThing = [f.hands.L, f.hands.R].some((hd) => hd.holding() && hd.targetInfo?.kind === 'prop');
@@ -109,6 +110,7 @@ export class Hud {
     for (const [o] of this.tags) {
       if (o === f || !o.alive || o.removed) continue;
       if (o.ko && o.pos('chest').distanceTo(me) < 2.2) return `Ele desmaiou! Segure ${L.grab} para agarrar`;
+      if (o.downT > 0 && o.pos('chest').distanceTo(me) < 2.2) return `Ele caiu! Segure ${L.grab} para pegar`;
     }
     if ([f.punchL, f.punchR].some((a) => a.charging && a.charge > 0.25)) return 'Solte: SOCÃO!';
     if (f.dizzy > 70) return 'Tonto! Mais um soco e você desmaia';
