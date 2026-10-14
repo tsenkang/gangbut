@@ -870,7 +870,8 @@ export class Fighter {
 
   /** A cabeça procura o inimigo mais perto (os olhos seguem). */
   private updateLook(env: FighterEnv) {
-    if (!this.alive || this.ko) {
+    // parado no palco (seleção) ou comemorando: olha para a frente
+    if (!this.alive || this.ko || this.frozen || this.celebrating) {
       this.lookAt = null;
       return;
     }

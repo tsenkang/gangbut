@@ -23,10 +23,10 @@ export interface CharacterDef {
 
 export const CHARACTERS: CharacterDef[] = [
   { id: 'classico', name: 'Clássico', description: 'Feijãozinho de gelatina: o molenga raiz, liso e fofo.', defaultColor: 0x3a86ff, voice: 1.1 },
-  { id: 'gominha', name: 'Gominha', description: 'Ursinho de goma, brilhante e pulador.', defaultColor: 0xff4d5e, voice: 1.25 },
-  { id: 'pao', name: 'Pão de Forma', description: 'Quadradão e fofinho. Cheira a café da manhã.', defaultColor: 0xe9b872, voice: 0.85 },
-  { id: 'ovo', name: 'Ovo', description: 'Liso, redondo e um pouco frágil.', defaultColor: 0xf4f1ea, voice: 1.05 },
-  { id: 'pimentao', name: 'Pimentão', description: 'Cheio de gomos e de atitude.', defaultColor: 0x3ddc84, voice: 0.95 },
+  { id: 'gominha', name: 'Gominha', description: 'Ursinho de goma: orelhinhas, focinho e cinturinha. Brilha que nem bala.', defaultColor: 0xff4d5e, voice: 1.25 },
+  { id: 'pao', name: 'Pão de Forma', description: 'Quadradão e fofinho, com casca no topo. Cheira a café da manhã.', defaultColor: 0xe9b872, voice: 0.85 },
+  { id: 'ovo', name: 'Ovo', description: 'Largo embaixo, fininho em cima e com a gema à mostra.', defaultColor: 0xf4f1ea, voice: 1.05 },
+  { id: 'pimentao', name: 'Pimentão', description: 'Cheio de gomos, de cabinho e de atitude.', defaultColor: 0x3ddc84, voice: 0.95 },
 ];
 
 export const COLORS: { name: string; hex: number }[] = [
@@ -238,15 +238,63 @@ function beanRadius(y: number) {
   return Math.max(0.001, base * (0.5 - 0.055 * t)); // um tiquinho mais estreito em cima
 }
 
+/**
+ * Formato de cada personagem em cima do feijão básico:
+ * mul = engorda/afina por altura (t = 0 pé, 1 topo), square = quão
+ * quadrado é (2 = redondo), lobes = gomos em volta (pimentão).
+ */
+interface BodyShape {
+  mul: (t: number) => number;
+  square: number;
+  lobes: number;
+  lobeN: number;
+}
+const bump = (t: number, c: number, w: number) => Math.exp(-((t - c) * (t - c)) / (w * w));
+export const SHAPES: Record<CharacterId, BodyShape> = {
+  classico: { mul: () => 1, square: 2, lobes: 0, lobeN: 0 },
+  // ursinho de goma: cinturinha e cabeção
+  gominha: { mul: (t) => 1 - 0.1 * bump(t, 0.6, 0.09) + 0.04 * bump(t, 0.82, 0.12), square: 2, lobes: 0, lobeN: 0 },
+  // pão de forma: quadradão
+  pao: { mul: () => 0.93, square: 4.5, lobes: 0, lobeN: 0 },
+  // ovo: largo embaixo, fino em cima
+  ovo: { mul: (t) => 1.1 - 0.26 * Math.pow(t, 1.6), square: 2, lobes: 0, lobeN: 0 },
+  // pimentão: gomos e barriguinha
+  pimentao: { mul: (t) => 1 + 0.05 * Math.sin(Math.PI * t), square: 2, lobes: 0.085, lobeN: 4 },
+};
+
+/** Raio do corpo numa altura e num ângulo (0 = frente). */
+export function bodyRadius(char: CharacterId, y: number, theta = 0) {
+  const sh = SHAPES[char];
+  const t = THREE.MathUtils.clamp((y - BEAN_BOTTOM) / (BEAN_TOP - BEAN_BOTTOM), 0, 1);
+  const c = Math.abs(Math.cos(theta));
+  const sn = Math.abs(Math.sin(theta));
+  const sq = sh.square === 2 ? 1 : 1 / Math.pow(Math.pow(c, sh.square) + Math.pow(sn, sh.square), 1 / sh.square);
+  return beanRadius(y) * sh.mul(t) * sq * (1 + sh.lobes * Math.cos(sh.lobeN * theta));
+}
+
 /** Malha de revolução do feijão entre duas alturas, com pesos para os 3 ossos. */
-function beanGeometry(y0: number, y1: number, inflate: number, segs: number) {
+function beanGeometry(y0: number, y1: number, inflate: number, segs: number, char: CharacterId = 'classico') {
   const pts: THREE.Vector2[] = [];
   for (let i = 0; i <= segs; i++) {
     const y = y0 + ((y1 - y0) * i) / segs;
     pts.push(new THREE.Vector2(beanRadius(y) * inflate, y));
   }
-  const geo = new THREE.LatheGeometry(pts, 40);
+  const geo = new THREE.LatheGeometry(pts, 48);
   geo.rotateY(Math.PI); // o meio da textura fica de frente
+  if (char !== 'classico') {
+    // aplica o formato do personagem (quadrado, ovo, gomos...)
+    const p = geo.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i);
+      const z = p.getZ(i);
+      const r = Math.hypot(x, z);
+      if (r < 1e-5) continue;
+      const th = Math.atan2(x, z);
+      const k = bodyRadius(char, p.getY(i), th) / Math.max(1e-5, beanRadius(p.getY(i)));
+      p.setXYZ(i, x * k, p.getY(i), z * k);
+    }
+    geo.computeVertexNormals();
+  }
   // pesos de cada vértice para cada osso (0 = quadril, 1 = tronco, 2 = cabeça)
   const pos = geo.attributes.position;
   const idx: number[] = [];
@@ -278,7 +326,7 @@ function skinnedOn(geo: THREE.BufferGeometry, mat: THREE.Material | THREE.Materi
  * quadril, tronco e cabeça. Cada pedacinho da pele segue os ossos
  * mais perto dele, então o corpo dobra e amassa como gelatina.
  */
-function softBean(mat: THREE.Material): SoftBody {
+function softBean(mat: THREE.Material, char: CharacterId = 'classico'): SoftBody {
   const mk = (y: number) => {
     const b = new THREE.Bone();
     b.position.set(0, y, 0);
@@ -287,7 +335,7 @@ function softBean(mat: THREE.Material): SoftBody {
   };
   const bones = { pelvis: mk(DIM.pelvisY), chest: mk(DIM.chestY), head: mk(DIM.headY) };
   const skeleton = new THREE.Skeleton([bones.pelvis, bones.chest, bones.head]);
-  const mesh = skinnedOn(beanGeometry(BEAN_BOTTOM, BEAN_TOP, 1, 48), mat, skeleton);
+  const mesh = skinnedOn(beanGeometry(BEAN_BOTTOM, BEAN_TOP, 1, 48, char), mat, skeleton);
   return { mesh, bones, extra: [] };
 }
 
@@ -304,7 +352,7 @@ export function buildSkin(app: Appearance): SkinResult {
 
   // Braços e pernas (bracinhos de luva). O Clássico tem membros
   // curtinhos e bem gordinhos, e pés da mesma cor do corpo.
-  const fat = app.character === 'classico';
+  const fat = true; // bracinhos e perninhas gordinhos (estilo molenga) para todos
   for (const side of ['L', 'R'] as const) {
     parts[('arm' + side) as PartName].add(mesh(capsule(DIM.armR + (fat ? 0.03 : 0.015), DIM.armHH * 2 + 0.06), mat));
     const fore = parts[('fore' + side) as PartName];
@@ -334,105 +382,99 @@ export function buildSkin(app: Appearance): SkinResult {
   let frontZ = 0.32;
   let soft: SoftBody | undefined;
 
+  // Todos têm o corpo inteiriço de gelatina; cada um com seu formato e detalhes.
+  soft = softBean(mat, app.character);
+  const H = DIM.headY;
+  const C = DIM.chestY;
+  /** z da frente do corpo numa altura (para grudar rosto e detalhes na pele) */
+  const front = (y: number) => bodyRadius(app.character, y, 0);
+  headTop = BEAN_TOP - H;
   switch (app.character) {
     case 'classico': {
-      // Um feijão só: tronco largo + topo redondo grudado (sem pescoço)
-      // o corpo é a pele inteiriça (softBean); aqui só o rosto
-      soft = softBean(mat);
       face = buildFace(head, 0.4, 0.08, 1.3, true);
-      headTop = 0.4;
       frontZ = 0.42;
       break;
     }
     case 'gominha': {
-      chest.add(mesh(capsule(0.37, 0.34), mat));
-      head.add(mesh(sphere(0.34), mat));
-      for (const sx of [-1, 1]) head.add(mesh(sphere(0.11), mat, sx * 0.24, 0.24, -0.02));
-      const muzzle = mesh(sphere(0.13), mat2, 0, -0.1, 0.27);
-      muzzle.scale.set(1.3, 0.8, 0.7);
+      // orelhinhas, focinho e barriga mais clara
+      for (const sx of [-1, 1]) {
+        const ear = mesh(sphere(0.13), mat, sx * 0.27, 0.3, -0.02);
+        ear.scale.set(1, 1, 0.75);
+        head.add(ear);
+        const inner = mesh(sphere(0.07), mat2, sx * 0.27, 0.31, 0.06);
+        inner.scale.set(1, 1, 0.5);
+        head.add(inner);
+      }
+      const fz = front(H - 0.05);
+      const muzzle = mesh(sphere(0.13), mat2, 0, -0.06, fz - 0.03);
+      muzzle.scale.set(1.25, 0.85, 0.55);
       head.add(muzzle);
-      // barriguinha mais clara
-      const belly = mesh(sphere(0.24), mat2, 0, -0.02, 0.2);
-      belly.scale.set(1, 1.2, 0.5);
+      head.add(mesh(sphere(0.04), faceDark, 0, -0.01, fz + 0.04));
+      const belly = mesh(sphere(0.25), mat2, 0, -0.1, front(C - 0.1) - 0.08);
+      belly.scale.set(1, 1.25, 0.4);
+      belly.userData.decal = true;
       chest.add(belly);
-      face = buildFace(head, 0.33, 0.06);
-      frontZ = 0.33;
-      headTop = 0.3;
+      face = buildFace(head, front(H + 0.1) + 0.02, 0.1, 1.15);
+      face.mouth.visible = false;
+      face.smile = false;
+      frontZ = front(H + 0.1);
       break;
     }
     case 'pao': {
-      const crust = new THREE.MeshStandardMaterial({ color: darker.clone().multiplyScalar(0.85), roughness: 0.9 });
+      // casca mais escura no topo + miolo clarinho na frente
+      const crust = new THREE.MeshStandardMaterial({ color: darker.clone().multiplyScalar(0.8), roughness: 0.9 });
       const crumb = new THREE.MeshStandardMaterial({ color: 0xfff1d0, roughness: 1 });
       materials.push(crust, crumb);
-      chest.add(mesh(cached('paoChest', () => new RoundedBoxGeometry(0.76, 0.78, 0.6, 4, 0.18)), mat));
-      // Cabeça = fatia de pão: casca + miolo na frente
-      const slice = mesh(cached('paoHead', () => new RoundedBoxGeometry(0.66, 0.6, 0.5, 4, 0.16)), crust);
-      head.add(slice);
-      const top1 = mesh(sphere(0.2), crust, -0.14, 0.2, 0);
-      top1.scale.set(1, 0.7, 1.2);
-      const top2 = top1.clone();
-      top2.position.x = 0.14;
-      head.add(top1, top2);
-      const inner = mesh(cached('paoInner', () => new RoundedBoxGeometry(0.56, 0.5, 0.06, 2, 0.03)), crumb, 0, -0.01, 0.24);
+      for (const sx of [-1, 1]) {
+        const top = mesh(sphere(0.24), crust, sx * 0.17, 0.3, 0);
+        top.scale.set(1.05, 0.55, 1.25);
+        head.add(top);
+      }
+      const fz = front(H + 0.05);
+      const inner = mesh(cached('paoInner2', () => new RoundedBoxGeometry(0.62, 0.5, 0.05, 2, 0.04)), crumb, 0, 0.04, fz - 0.005);
       head.add(inner);
-      face = buildFace(head, 0.3, 0.04);
-      frontZ = 0.3;
-      headTop = 0.33;
+      face = buildFace(head, fz + 0.06, 0.1, 1.15);
+      frontZ = fz + 0.04;
       break;
     }
     case 'ovo': {
-      const c = mesh(sphere(0.4), mat);
-      c.scale.set(0.95, 1.2, 0.9);
-      chest.add(c);
-      const h = mesh(sphere(0.33), mat);
-      h.scale.set(0.95, 1.12, 0.95);
-      head.add(h);
-      // "gema" na barriga
-      const yolk = mesh(sphere(0.16), new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.3 }), 0, -0.04, 0.3);
-      yolk.scale.set(1, 1, 0.45);
+      const fz = front(C - 0.05);
+      const yolk = mesh(sphere(0.2), new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.25 }), 0, -0.05, fz - 0.035);
+      yolk.scale.set(1, 1, 0.38);
+      yolk.userData.decal = true;
       chest.add(yolk);
-      face = buildFace(head, 0.32, 0.06);
-      headTop = 0.36;
+      materials.push(yolk.material as THREE.Material);
+      face = buildFace(head, front(H + 0.08) + 0.02, 0.08, 1.15);
+      frontZ = front(H + 0.08);
       break;
     }
     case 'pimentao': {
-      // Gomos: várias bolinhas juntas
-      for (let i = 0; i < 4; i++) {
-        const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
-        const lobe = mesh(sphere(0.27), mat, Math.cos(a) * 0.14, 0, Math.sin(a) * 0.12);
-        lobe.scale.set(1, 1.45, 1);
-        chest.add(lobe);
-      }
-      for (let i = 0; i < 4; i++) {
-        const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
-        const lobe = mesh(sphere(0.22), mat, Math.cos(a) * 0.11, 0, Math.sin(a) * 0.1);
-        lobe.scale.set(1, 1.2, 1);
-        head.add(lobe);
-      }
       const stemMat = new THREE.MeshStandardMaterial({ color: 0x2d6a2e, roughness: 0.6 });
       materials.push(stemMat);
-      const stem = mesh(cached('stem', () => new THREE.CylinderGeometry(0.035, 0.06, 0.2, 8)), stemMat, 0.02, 0.32, 0);
-      stem.rotation.z = -0.4;
+      const stem = mesh(cached('stem2', () => new THREE.CylinderGeometry(0.05, 0.08, 0.26, 8)), stemMat, 0.02, headTop + 0.1, 0);
+      stem.rotation.z = -0.35;
       head.add(stem);
-      const cap = mesh(sphere(0.12), stemMat, 0, 0.24, 0);
-      cap.scale.set(1.3, 0.35, 1.3);
+      const cap = mesh(sphere(0.16), stemMat, 0, headTop - 0.03, 0);
+      cap.scale.set(1.4, 0.35, 1.4);
       head.add(cap);
-      face = buildFace(head, 0.32, 0.05);
-      headTop = 0.3;
+      face = buildFace(head, front(H + 0.08) + 0.03, 0.08, 1.2);
+      frontZ = front(H + 0.08);
       break;
     }
   }
 
   const costume = app.costume ?? 'nenhuma';
   // O feijão tem a cabeça maior: chapéus e fantasias da cabeça crescem junto.
-  const hs = app.character === 'classico' ? 1.15 : 1;
+  const hs = 1.15;
   const headBase = head.children.length;
   const hat = COVERS_HAT.has(costume) ? null : buildHat(app.hat, headTop / hs);
   if (hat) head.add(hat);
   // Fantasia por cima de tudo
   materials.push(
-    ...applyCostume(costume, parts, headTop / hs, frontZ / hs, app.character === 'classico' ? { r: 0.51, len: 0.32, y: -0.1 } : undefined),
+    ...applyCostume(costume, parts, headTop / hs, frontZ / hs, { r: 0.51, len: 0.32, y: -0.1 }),
   );
+  // Roupa no tronco: esconde o que é "pintado" na barriga (gema, barriguinha)
+  if (parts.chest.children.some((c) => c.userData.band)) for (const c of parts.chest.children) if (c.userData.decal) c.visible = false;
   if (soft) {
     for (const n of ['chest', 'pelvis'] as PartName[]) {
       for (const c of [...parts[n].children]) {
@@ -440,7 +482,7 @@ export function buildSkin(app: Appearance): SkinResult {
         if (!band) continue;
         parts[n].remove(c);
         const m = (c as THREE.Mesh).material;
-        soft.extra.push(skinnedOn(beanGeometry(band[0], band[1], n === 'pelvis' ? 1.045 : 1.035, 24), m, soft.mesh.skeleton));
+        soft.extra.push(skinnedOn(beanGeometry(band[0], band[1], n === 'pelvis' ? 1.045 : 1.035, 24, app.character), m, soft.mesh.skeleton));
       }
     }
   }
