@@ -1,6 +1,6 @@
 import { MenuList, driveMenu, h, hex, uiRoot, type Screen } from './UI';
 import type { InputManager } from '../input/InputManager';
-import { GamepadSource, buttonNames } from '../input/Gamepads';
+import { GamepadSource, buttonNames, padsBlocked } from '../input/Gamepads';
 import { SLOT_COLORS } from '../game/config';
 
 // ------------------------------------------------------------
@@ -71,7 +71,12 @@ export class ControlsScreen implements Screen {
         pressed || (active ? 'mexendo…' : 'aperte algo para testar')
       }</span></div>`;
     });
-    if (!this.input.pads.size) rows.push(`<div class="dev dim">Nenhum controle detectado. Ligue o controle (USB ou Bluetooth) e aperte qualquer botão.</div>`);
+    if (!this.input.pads.size)
+      rows.push(
+        padsBlocked
+          ? `<div class="dev dim">⚠ O navegador bloqueou os controles nesta janela. Abra o jogo numa aba própria para usar controle.</div>`
+          : `<div class="dev dim">Nenhum controle detectado. Ligue o controle (USB ou Bluetooth) e aperte qualquer botão.</div>`,
+      );
     this.table.innerHTML = rows.join('');
   }
 

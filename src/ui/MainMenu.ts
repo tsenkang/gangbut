@@ -1,6 +1,7 @@
 import { MenuList, driveMenu, h, uiRoot, type Screen } from './UI';
 import type { InputManager } from '../input/InputManager';
 import { audio } from '../audio/Audio';
+import { padsBlocked } from '../input/Gamepads';
 import type { Engine, Quality } from '../game/Engine';
 
 // ------------------------------------------------------------
@@ -66,7 +67,9 @@ export class MainMenu implements Screen {
     const pads = [...this.input.pads.values()];
     this.pads.innerHTML = pads.length
       ? pads.map((p) => `<span>🎮 ${p.label}</span>`).join('')
-      : '<span class="dim">Nenhum controle conectado — aperte um botão no controle para ele aparecer</span>';
+      : padsBlocked
+        ? '<span class="dim">⚠ O navegador bloqueou os controles nesta janela — abra o jogo em uma aba própria (tela cheia) para usar controle</span>'
+        : '<span class="dim">Nenhum controle conectado — aperte um botão no controle para ele aparecer</span>';
   }
 
   destroy() {

@@ -1,4 +1,4 @@
-import { GamepadSource, getPad } from './Gamepads';
+import { GamepadSource, listPads, looksLikePad } from './Gamepads';
 import { KeyboardSource, LAYOUT_A, LAYOUT_B, initKeyboard, clearTaps } from './Keyboard';
 import type { MenuAction } from './types';
 
@@ -40,24 +40,71 @@ export class InputManager {
     this.disconnectCbs.push(cb);
   }
 
+  private missing = new Map<GamepadSource, number>(); // há quanto tempo sumiu
+  private lost: GamepadSource[] = []; // desconectados (esperando voltar)
+  private lastPoll = performance.now();
+  private twins = new Set<number>(); // índices que são cópia de outro controle (ignorados)
+
+  /** O que está apertado agora (para reconhecer um controle "espelho"). */
+  private signature(gp: Gamepad) {
+    let sig = '';
+    for (let i = 0; i < Math.min(gp.buttons.length, 17); i++) sig += gp.buttons[i].pressed || gp.buttons[i].value > 0.5 ? '1' : '0';
+    for (const a of gp.axes.slice(0, 2)) sig += a > 0.6 ? '+' : a < -0.6 ? '-' : '0';
+    return sig;
+  }
+
+  private active(gp: Gamepad) {
+    return gp.buttons.some((b) => b.pressed || b.value > 0.5) || gp.axes.slice(0, 2).some((a) => Math.abs(a) > 0.6);
+  }
+
   private pollPads() {
-    const list = navigator.getGamepads ? navigator.getGamepads() : [];
+    const now = performance.now();
+    const dt = Math.min(0.5, (now - this.lastPoll) / 1000);
+    this.lastPoll = now;
+    const list = listPads();
     const seen = new Set<number>();
+    const present = new Set<number>();
+    for (const gp of list) if (gp && gp.connected) present.add(gp.index);
+    for (const i of [...this.twins]) if (!present.has(i)) this.twins.delete(i);
     for (const gp of list) {
-      if (!gp || !gp.connected) continue;
+      if (!gp || !gp.connected || !looksLikePad(gp)) continue;
       seen.add(gp.index);
       const known = this.pads.get(gp.index);
-      if (!known) {
-        const src = new GamepadSource(gp.index, gp.id);
-        this.pads.set(gp.index, src);
-        this.connectCbs.forEach((cb) => cb(src));
+      if (known) {
+        this.missing.delete(known);
+        continue;
       }
+      if (this.twins.has(gp.index)) continue;
+      // Só vira jogador depois de apertar algo nele.
+      if (!this.active(gp)) continue;
+      // O mesmo controle aparecendo duas vezes (Steam, DS4Windows, HID + XInput...):
+      // se outro controle já conhecido está com exatamente os mesmos botões
+      // apertados agora, este é um espelho dele.
+      const sig = this.signature(gp);
+      const mirror = /[1+-]/.test(sig) && list.some((o) => o && o.index !== gp.index && o.connected && (this.pads.has(o.index) || seen.has(o.index)) && this.signature(o) === sig);
+      if (mirror) {
+        this.twins.add(gp.index);
+        continue;
+      }
+      // Um controle que tinha caído voltou (mesmo em outro índice)? Devolve
+      // o mesmo "dispositivo" para o jogador continuar com ele.
+      const back = this.lost.shift();
+      const src = back ?? new GamepadSource(gp.index, gp.id);
+      if (back) back.rebind(gp.index, gp.id);
+      this.pads.set(gp.index, src);
+      this.memory.delete(src.id);
+      this.connectCbs.forEach((cb) => cb(src));
     }
     for (const [idx, src] of this.pads) {
-      if (!seen.has(idx) && !getPad(idx)) {
-        this.pads.delete(idx);
-        this.disconnectCbs.forEach((cb) => cb(src));
-      }
+      if (seen.has(idx)) continue;
+      // Bluetooth às vezes "pisca": só considera desligado depois de 1,2 s sumido.
+      const t = (this.missing.get(src) ?? 0) + dt;
+      this.missing.set(src, t);
+      if (t < 1.2) continue;
+      this.missing.delete(src);
+      this.pads.delete(idx);
+      this.lost.push(src);
+      this.disconnectCbs.forEach((cb) => cb(src));
     }
   }
 

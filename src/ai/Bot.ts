@@ -32,7 +32,7 @@ interface BotParams {
 }
 
 const PARAMS: Record<Difficulty, BotParams> = {
-  facil: { reaction: 0.6, punchRate: 1.1, aimError: 0.7, edgeCare: 0.6, grabChance: 0.1, headbutt: 0.04, kick: 0.02, climb: false, carry: 0, speed: 0.7, escapeRate: 3, hazardCare: 0.45, edgeFear: 0.5 },
+  facil: { reaction: 0.6, punchRate: 1.1, aimError: 0.7, edgeCare: 0.8, grabChance: 0.1, headbutt: 0.04, kick: 0.02, climb: true, carry: 0, speed: 0.7, escapeRate: 3, hazardCare: 0.7, edgeFear: 0.6 },
   medio: { reaction: 0.32, punchRate: 2, aimError: 0.35, edgeCare: 0.95, grabChance: 0.35, headbutt: 0.12, kick: 0.06, climb: true, carry: 0.5, speed: 0.9, escapeRate: 6, hazardCare: 0.9, edgeFear: 1 },
   dificil: { reaction: 0.14, punchRate: 3.6, aimError: 0.12, edgeCare: 1, grabChance: 0.6, headbutt: 0.2, kick: 0.1, climb: true, carry: 0.9, speed: 1, escapeRate: 10, hazardCare: 1, edgeFear: 1.3 },
 };
@@ -119,16 +119,38 @@ export class Bot implements InputSource {
     return this.arena.fighters.filter((x) => x !== this.fighter && x.alive && !x.removed);
   }
 
-  /** Tem chão nesse ponto? (raio para baixo) */
+  /** Tem chão nesse ponto? (raio para baixo — e não vale água, lava ou trilho) */
   private groundAt(p: THREE.Vector3) {
-    const hit = this.arena.physics.rayDown(new THREE.Vector3(p.x, p.y + 1.5, p.z), 6, this.fighter.ragdoll.bit);
-    return !!hit;
+    // até ~2 m abaixo do pé conta como chão (mais que isso é queda: cabine de baixo, estrutura...)
+    const hit = this.arena.physics.rayDown(new THREE.Vector3(p.x, p.y + 1.5, p.z), 4.5, this.fighter.ragdoll.bit);
+    if (!hit) return false;
+    const y = p.y + 1.5 - hit.dist;
+    return y > this.arena.map.killY && this.arena.map.deathAt(new THREE.Vector3(p.x, y, p.z)) === 'none';
   }
 
-  /** Tem chão para pousar nesse ponto, mais ou menos na minha altura? */
+  /** Tem chão para pousar nesse ponto, mais ou menos na minha altura (e parado)? */
   private landingAt(p: THREE.Vector3) {
     const hit = this.arena.physics.rayDown(new THREE.Vector3(p.x, p.y + 1.2, p.z), 2.6, this.fighter.ragdoll.bit);
-    return !!hit;
+    if (!hit) return false;
+    // plataforma que sobe/desce rápido (elevador, gôndola) não serve para pousar
+    const body = hit.collider.parent();
+    if (body && body.isKinematic() && Math.abs(body.linvel().y) > 0.35) return false;
+    return true;
+  }
+
+  /** Dá para chegar andando em linha reta até lá? (sem buraco no caminho) */
+  private reachable(to: THREE.Vector3) {
+    const me = this.fighter.pos('chest');
+    const d = to.clone().sub(me).setY(0);
+    const len = d.length();
+    if (len < 1.2 || Math.abs(to.y - me.y) > 2.2) return Math.abs(to.y - me.y) <= 2.2;
+    d.normalize();
+    for (let t = 0.7; t < len - 0.4; t += 0.7) {
+      const p = me.clone().addScaledVector(d, t);
+      p.y = me.y + ((to.y - me.y) * t) / len;
+      if (!this.groundAt(p)) return false;
+    }
+    return true;
   }
 
   private decide() {
@@ -147,6 +169,7 @@ export class Bot implements InputSource {
       if (this.difficulty !== 'facil' && (e.ko || e.downT > 0)) score -= 3;
       if (this.difficulty === 'dificil' && e.dizzy > 60) score -= 1.5;
       if (e === this.target) score -= 1; // não fica trocando toda hora
+      if (!this.reachable(e.pos('chest'))) score += 9; // prefere quem dá para alcançar
       if (score < bestScore) {
         bestScore = score;
         best = e;
@@ -237,6 +260,12 @@ export class Bot implements InputSource {
       o.grabL = o.grabR = false;
       const d = safe.clone().sub(me).setY(0);
       this.wantDir.copy(d.lengthSq() > 0.16 ? d.normalize() : d.set(0, 0, 0));
+      // o lugar seguro é mais alto (ex.: caí no trilho e o trem vem): agarra a beirada e sobe
+      if (me.y < safe.y + 0.5 && d.lengthSq() > 0.16) {
+        o.grabL = o.grabR = true;
+        o.armY = 1;
+        if (f.grounded && Math.random() < dt * 4) o.jump = true;
+      }
       // se alguém estiver colado, dá um soquinho para abrir caminho
       this.punchTimer -= dt;
       const near = this.target && !this.target.removed && this.target.pos('chest').distanceTo(me) < 1.3;
@@ -277,7 +306,8 @@ export class Bot implements InputSource {
         const d = dump.clone().sub(me).setY(0);
         const dl = d.length();
         this.wantDir.copy(d.normalize());
-        if (dl < 2 || this.modeTime > 6) {
+        // chegou na beirada (ou perto o bastante): joga sem entrar junto
+        if (dl < 2 || this.modeTime > 6 || !this.groundAt(me.clone().addScaledVector(this.wantDir, 1.0))) {
           this.wantDir.multiplyScalar(-0.6);
           o.punchL = true;
           o.punchR = true;
@@ -349,14 +379,15 @@ export class Bot implements InputSource {
     }
 
     // Alvo lá em cima (eu caí no engate, ele está no teto): agarra a parede e escala
-    if (this.p.climb && tgt.y - me.y > 1.0 && dist < 3.5) {
+    // (só quando ele está quase em cima de mim e tem chão na frente — senão é pular no vazio)
+    if (this.p.climb && tgt.y - me.y > 1.0 && dist < 2 && this.groundAt(me.clone().addScaledVector(to, 0.7))) {
       o.grabL = o.grabR = true;
       o.armY = 1;
       if (Math.random() < dt * 3) o.jump = true;
     }
 
-    // Preso num canto? pula.
-    if (f.speed < 0.3 && dist > 2) {
+    // Preso num canto? pula. (mas não quando está esperando na beirada)
+    if (f.speed < 0.3 && dist > 2 && this.arena.map.botLeaps && this.wantDir.lengthSq() > 0.09 && this.groundAt(me.clone().addScaledVector(this.wantDir.clone().normalize(), 1.2))) {
       this.stuck += dt;
       if (this.stuck > 1.2) {
         o.jump = true;
@@ -368,6 +399,9 @@ export class Bot implements InputSource {
   }
 
   /** Se o próximo passo for o vazio, desvia (de acordo com o cuidado). */
+  private waitT = 0; // esperando na beirada
+  private circleSign = Math.random() < 0.5 ? 1 : -1;
+
   private avoidEdge(me: THREE.Vector3) {
     // Sente a beirada em volta e se afasta dela (mesmo parado, brigando)
     if (this.edgeTick-- <= 0) {
@@ -387,7 +421,10 @@ export class Bot implements InputSource {
     const dir = this.wantDir.clone().normalize();
     const near = me.clone().addScaledVector(dir, 0.7);
     const ahead = me.clone().addScaledVector(dir, 1.3);
-    if (this.careful && (!this.groundAt(near) || !this.groundAt(ahead))) {
+    // os descuidados só param quando o vazio está colado no pé
+    const blocked = this.careful ? !this.groundAt(near) || !this.groundAt(ahead) : !this.groundAt(near);
+    if (!blocked && this.waitT > 0) this.waitT = Math.max(0, this.waitT - 1 / 120);
+    if (blocked) {
       // Vão curto com chão do outro lado e o alvo lá: pula!
       const f = this.fighter;
       const land = me.clone().addScaledVector(dir, 2.3);
@@ -397,6 +434,27 @@ export class Bot implements InputSource {
         this.leapT = 0.95;
         this.leapJumped = false;
         this.leapDir.copy(dir);
+        return;
+      }
+      // Procura um ângulo que tenha chão (passarela estreita, tábua, curva...).
+      // Esperando faz tempo na beirada? Dá a volta (contorna o buraco).
+      const around = this.waitT > 2.5 ? [100 * this.circleSign, 130 * this.circleSign] : [];
+      for (const deg of [25, -25, 50, -50, 75, -75, ...around]) {
+        const alt = dir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), (deg * Math.PI) / 180);
+        if (this.groundAt(me.clone().addScaledVector(alt, 0.7)) && this.groundAt(me.clone().addScaledVector(alt, 1.3))) {
+          this.wantDir.copy(alt).multiplyScalar(Math.min(1, this.wantDir.length()));
+          return;
+        }
+      }
+      // Sem caminho: perseguindo, espera na beirada (o elevador/gôndola pode chegar);
+      // senão, volta para um lugar firme.
+      if (chasing && this.groundAt(near)) {
+        this.wantDir.set(0, 0, 0);
+        this.waitT += 1 / 60;
+        if (this.waitT > 6) {
+          this.waitT = 0;
+          this.circleSign = -this.circleSign;
+        }
         return;
       }
       const center = this.arena.map.safeSpot(me);

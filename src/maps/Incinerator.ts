@@ -347,7 +347,7 @@ export class Incinerator extends GameMap {
     if (p.y < -0.5) return null;
     const danger = this.hatch === 'warn' || this.hatch === 'open';
     const onBelt = Math.abs(p.z) < BELT_Z + 0.4 && Math.abs(p.x) < BELT_X && p.y < 1.5;
-    const nearPit = Math.abs(p.x) < PIT_X + 0.8 && Math.abs(p.z) < PIT_Z + 0.6 && p.y < 1.5;
+    const nearPit = Math.abs(p.x) < PIT_X + 1.4 && Math.abs(p.z) < PIT_Z + 1.4 && p.y < 1.5;
     if (nearPit && (danger || this.openK > 0)) {
       return new THREE.Vector3(Math.sign(p.x || 1) * (PIT_X + 2.5), 0, p.z >= 0 ? PIT_Z + 1.2 : -(PIT_Z + 1.2));
     }

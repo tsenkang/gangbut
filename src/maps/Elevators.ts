@@ -5,17 +5,17 @@ import { cityBackdrop, grimeTexture, hazeBelow, iBeamGeometry } from './City';
 
 // ------------------------------------------------------------
 // Mapa 8 — ELEVADORES
-// Três elevadores de obra, sem paredes, subindo e descendo lado a
-// lado na fachada de um prédio. Dos dois lados tem um andar firme.
-// Os elevadores não esperam ninguém: pule na hora certa! Lá em
-// cima tem uma viga que raspa a cabeça de quem ficar em pé.
+// Dois elevadores de obra, sem paredes, subindo e descendo lado a
+// lado na fachada de um prédio. Dos dois lados tem um térreo e um
+// andar de cima; os elevadores param um pouco em cada andar. Os
+// cabos arrebentam a socos. Lá em cima tem uma viga que raspa a
+// cabeça de quem ficar em pé.
 // ------------------------------------------------------------
 
 const CARS = [-2.3, 2.3]; // x de cada elevador (são dois)
 const CW = 1.75; // meia largura (x)
 const CABLE_HP = 3; // pancadas para arrebentar um cabo
 const CD = 2.1; // meia profundidade (z)
-const LOW = -2.2;
 const HIGH = 5.4;
 const BEAM_Y = 7.4; // viga lá de cima (bate em quem passa em pé)
 
@@ -39,7 +39,7 @@ export class Elevators extends GameMap {
   hazard = 'Soque os cabos do elevador: com um partido ele entorta, com os dois ele DESPENCA (com quem estiver dentro)!';
   music = 'telhado' as const;
   killY = -12;
-  botLeaps = false; // o elevador some debaixo de quem pula
+  botLeaps = true; // os robôs só pulam quando o elevador está parado no mesmo nível
   camera = {
     dir: new THREE.Vector3(0, 0.45, 1),
     minDist: 15,
@@ -113,7 +113,7 @@ export class Elevators extends GameMap {
     // ---------------- os três elevadores (cinemáticos)
     const world = this.ctx.physics.world;
     CARS.forEach((x, i) => {
-      const phase = i * Math.PI;
+      const phase = i * 1.5;
       const y = this.carY(phase, 0);
       const body = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(x, y, 0));
       const add = (desc: RAPIER.ColliderDesc) => {
@@ -188,11 +188,17 @@ export class Elevators extends GameMap {
     this.spawns = [new THREE.Vector3(-7.5, 0.05, 0.5), new THREE.Vector3(7.5, 0.05, 0.5), new THREE.Vector3(-10.5, 0.05, -1), new THREE.Vector3(10.5, 0.05, -1)];
   }
 
-  /** Altura do elevador: para um pouquinho em cima e embaixo, anda no meio. */
+  /** Altura do elevador: para no térreo, sobe, para no andar de cima, desce. */
   private carY(phase: number, t: number) {
-    const s = Math.sin(t * 0.55 + phase);
-    const k = THREE.MathUtils.clamp(s * 1.35, -1, 1); // achatado = paradinha nas pontas
-    return LOW + ((k + 1) / 2) * (HIGH - LOW);
+    const P = 11;
+    const u = (((t + phase) % P) + P) % P;
+    const ease = (k: number) => k * k * (3 - 2 * k);
+    let k: number;
+    if (u < 3) k = 0;
+    else if (u < 5.5) k = ease((u - 3) / 2.5);
+    else if (u < 8.5) k = 1;
+    else k = 1 - ease((u - 8.5) / 2.5);
+    return k * HIGH;
   }
 
   safeSpot(p: THREE.Vector3): THREE.Vector3 {

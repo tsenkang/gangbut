@@ -61,16 +61,109 @@ export function buttonNames(t: PadType) {
   return { jump: 'A', punchL: 'X', punchR: 'B', headbutt: 'Y', grabL: 'LT', grabR: 'RT', pause: 'Start' };
 }
 
+/** true quando o navegador não deixa ler controles (ex.: página dentro de um iframe sem permissão). */
+export let padsBlocked = false;
+
+/** Lista de controles, sem nunca quebrar o jogo (alguns navegadores jogam erro aqui). */
+export function listPads(): (Gamepad | null)[] {
+  try {
+    if (!navigator.getGamepads) return [];
+    const l = navigator.getGamepads();
+    padsBlocked = false;
+    return l ? Array.from(l) : [];
+  } catch {
+    padsBlocked = true;
+    return [];
+  }
+}
+
 export function getPad(index: number): Gamepad | null {
-  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-  const p = pads[index];
+  const p = listPads()[index];
   return p && p.connected ? p : null;
+}
+
+/** Parece mesmo um controle? (fones, teclados e volantes às vezes aparecem como "gamepad") */
+export function looksLikePad(gp: Gamepad) {
+  return gp.buttons.length >= 4 && gp.axes.length >= 2;
 }
 
 const pressed = (gp: Gamepad, i: number, threshold = 0.5) => {
   const b = gp.buttons[i];
   return !!b && (b.pressed || b.value > threshold);
 };
+
+/**
+ * Leitura "normalizada": devolve botões e eixos sempre no layout padrão,
+ * mesmo quando o navegador não entrega o mapeamento padrão (DualSense no
+ * Firefox, Xbox no Linux...).
+ */
+interface PadView {
+  btn(i: number, threshold?: number): boolean;
+  lx: number;
+  ly: number;
+  rx: number;
+  ry: number;
+}
+
+/** Direcional que vem como um eixo só ("hat"): -1 = cima, girando no sentido horário. */
+function hat(v: number | undefined) {
+  const r = { up: false, down: false, left: false, right: false };
+  if (v === undefined || Math.abs(v) > 1.05) return r;
+  const k = Math.round((v + 1) / (2 / 7)) % 8; // 0 cima, 1 cima-dir, 2 dir, ... 7 cima-esq
+  r.up = k === 7 || k === 0 || k === 1;
+  r.right = k >= 1 && k <= 3;
+  r.down = k >= 3 && k <= 5;
+  r.left = k >= 5 && k <= 7;
+  return r;
+}
+
+export function padView(gp: Gamepad, type: PadType): PadView {
+  const ax = (i: number) => gp.axes[i] ?? 0;
+  if (gp.mapping === 'standard' || type === 'generic') {
+    return { btn: (i, t) => pressed(gp, i, t), lx: ax(0), ly: ax(1), rx: ax(2), ry: ax(3) };
+  }
+  // Gatilho que vem como eixo: -1 solto, +1 apertado (às vezes 0 antes do primeiro toque).
+  const trig = (i: number) => gp.axes.length > i && ax(i) > 0.1;
+  if (type === 'playstation') {
+    // DualSense / DualShock sem mapeamento padrão
+    const map: Record<number, number> = { 0: 1, 1: 2, 2: 0, 3: 3, 4: 4, 5: 5, 8: 8, 9: 9 };
+    const h = hat(gp.axes[9]);
+    return {
+      btn: (i, t) => {
+        if (i === BTN.lt) return pressed(gp, 6, t) || trig(3);
+        if (i === BTN.rt) return pressed(gp, 7, t) || trig(4);
+        if (i === BTN.dUp) return h.up || pressed(gp, 12);
+        if (i === BTN.dDown) return h.down || pressed(gp, 13);
+        if (i === BTN.dLeft) return h.left || pressed(gp, 14);
+        if (i === BTN.dRight) return h.right || pressed(gp, 15);
+        return i in map ? pressed(gp, map[i], t) : false;
+      },
+      lx: ax(0),
+      ly: ax(1),
+      rx: ax(2),
+      ry: gp.axes.length > 5 ? ax(5) : ax(3),
+    };
+  }
+  // Xbox sem mapeamento padrão (Linux): gatilhos e direcional são eixos
+  const map: Record<number, number> = { 0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 8: 6, 9: 7 };
+  return {
+    btn: (i, t) => {
+      if (i === BTN.lt) return trig(2);
+      if (i === BTN.rt) return trig(5);
+      if (i === BTN.dUp) return ax(7) < -0.5;
+      if (i === BTN.dDown) return ax(7) > 0.5;
+      if (i === BTN.dLeft) return ax(6) < -0.5;
+      if (i === BTN.dRight) return ax(6) > 0.5;
+      return i in map ? pressed(gp, map[i], t) : false;
+    },
+    lx: ax(0),
+    ly: ax(1),
+    rx: ax(3),
+    ry: ax(4),
+  };
+}
+
+let nextPadId = 0;
 
 export class GamepadSource implements InputSource {
   kind = 'gamepad' as const;
@@ -84,7 +177,16 @@ export class GamepadSource implements InputSource {
   ) {
     this.type = padType(padId);
     this.label = padLabel(this.type);
-    this.id = 'pad' + index;
+    // id fixo do objeto (não do índice): se o controle reconectar em outro
+    // índice, o mesmo jogador continua com ele.
+    this.id = 'pad' + nextPadId++;
+  }
+
+  /** Controle reconectou (talvez em outro índice): passa a ler dele. */
+  rebind(index: number, padId: string) {
+    this.index = index;
+    this.type = padType(padId);
+    this.label = padLabel(this.type);
   }
 
   connected() {
@@ -93,42 +195,44 @@ export class GamepadSource implements InputSource {
 
   read(): ControlState {
     const s = emptyControl();
-    const gp = getPad(this.index);
-    if (!gp) return s;
-    const [lx, ly] = applyDeadzone(gp.axes[0] ?? 0, gp.axes[1] ?? 0);
-    const [, ry] = applyDeadzone(gp.axes[2] ?? 0, gp.axes[3] ?? 0);
+    const raw = getPad(this.index);
+    if (!raw) return s;
+    const gp = padView(raw, this.type);
+    const [lx, ly] = applyDeadzone(gp.lx, gp.ly);
+    const [, ry] = applyDeadzone(gp.rx, gp.ry);
     // Direcional também anda (útil em controles genéricos).
-    const dx = (pressed(gp, BTN.dRight) ? 1 : 0) - (pressed(gp, BTN.dLeft) ? 1 : 0);
-    const dy = (pressed(gp, BTN.dUp) ? 1 : 0) - (pressed(gp, BTN.dDown) ? 1 : 0);
+    const dx = (gp.btn(BTN.dRight) ? 1 : 0) - (gp.btn(BTN.dLeft) ? 1 : 0);
+    const dy = (gp.btn(BTN.dUp) ? 1 : 0) - (gp.btn(BTN.dDown) ? 1 : 0);
     s.moveX = dx || lx;
     s.moveY = dy || -ly; // no controle, "para cima" é negativo
     s.armY = -ry;
-    s.jump = pressed(gp, BTN.south);
-    s.punchL = pressed(gp, BTN.west);
-    s.punchR = pressed(gp, BTN.east);
-    s.headbutt = pressed(gp, BTN.north);
+    s.jump = gp.btn(BTN.south);
+    s.punchL = gp.btn(BTN.west);
+    s.punchR = gp.btn(BTN.east);
+    s.headbutt = gp.btn(BTN.north);
     // Gatilhos (e também os botões de ombro) agarram.
-    s.grabL = pressed(gp, BTN.lt, 0.3) || pressed(gp, BTN.lb);
-    s.grabR = pressed(gp, BTN.rt, 0.3) || pressed(gp, BTN.rb);
+    s.grabL = gp.btn(BTN.lt, 0.3) || gp.btn(BTN.lb);
+    s.grabR = gp.btn(BTN.rt, 0.3) || gp.btn(BTN.rb);
     // Segurar um gatilho também levanta um pouco os braços.
     if ((s.grabL || s.grabR) && s.armY === 0) s.armY = 0.1;
-    s.pause = pressed(gp, BTN.start);
+    s.pause = gp.btn(BTN.start);
     return s;
   }
 
   menuState(): Record<MenuAction, boolean> {
-    const gp = getPad(this.index);
+    const raw = getPad(this.index);
     const r = { up: false, down: false, left: false, right: false, confirm: false, back: false, pause: false };
-    if (!gp) return r;
-    const ax = gp.axes[0] ?? 0;
-    const ay = gp.axes[1] ?? 0;
-    r.up = pressed(gp, BTN.dUp) || ay < -0.6;
-    r.down = pressed(gp, BTN.dDown) || ay > 0.6;
-    r.left = pressed(gp, BTN.dLeft) || ax < -0.6;
-    r.right = pressed(gp, BTN.dRight) || ax > 0.6;
-    r.confirm = pressed(gp, BTN.south);
-    r.back = pressed(gp, BTN.east);
-    r.pause = pressed(gp, BTN.start);
+    if (!raw) return r;
+    const gp = padView(raw, this.type);
+    const ax = gp.lx;
+    const ay = gp.ly;
+    r.up = gp.btn(BTN.dUp) || ay < -0.6;
+    r.down = gp.btn(BTN.dDown) || ay > 0.6;
+    r.left = gp.btn(BTN.dLeft) || ax < -0.6;
+    r.right = gp.btn(BTN.dRight) || ax > 0.6;
+    r.confirm = gp.btn(BTN.south);
+    r.back = gp.btn(BTN.east);
+    r.pause = gp.btn(BTN.start);
     return r;
   }
 
