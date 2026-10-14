@@ -35,6 +35,9 @@ export class ControlsScreen implements Screen {
         <tr><td>Soco direito</td><td>K</td><td>2 / .</td><td>${x.punchR}</td><td>${p.punchR}</td></tr>
         <tr><td>Agarrar (segurar)</td><td>L</td><td>3 / Shift dir.</td><td>${x.grabL} / ${x.grabR}</td><td>${p.grabL} / ${p.grabR}</td></tr>
         <tr><td>Cabeçada</td><td>U</td><td>5 (num.)</td><td>${x.headbutt}</td><td>${p.headbutt}</td></tr>
+        <tr><td>Chutar</td><td>O</td><td>4 (num.)</td><td>${x.kick}</td><td>${p.kick}</td></tr>
+        <tr><td>Correr (segurar)</td><td>Shift esq.</td><td>Ctrl dir. / 9 (num.)</td><td>${x.run}</td><td>${p.run}</td></tr>
+        <tr><td>Abaixar (segurar)</td><td>C / Ctrl esq.</td><td>7 (num.)</td><td>${x.duck}</td><td>${p.duck}</td></tr>
         <tr><td>Erguer os braços</td><td>I</td><td>6 (num.)</td><td colspan=2>Analógico direito (cima/baixo)</td></tr>
         <tr><td>Pausar</td><td>Esc</td><td>Enter numérico</td><td>${x.pause}</td><td>${p.pause}</td></tr>
       </table>
@@ -56,7 +59,7 @@ export class ControlsScreen implements Screen {
     const rows = this.input.devices().map((d) => {
       const st = d.read();
       const active =
-        Math.abs(st.moveX) > 0.1 || Math.abs(st.moveY) > 0.1 || st.jump || st.punchL || st.punchR || st.grabL || st.grabR || st.headbutt || Math.abs(st.armY) > 0.2;
+        Math.abs(st.moveX) > 0.1 || Math.abs(st.moveY) > 0.1 || st.jump || st.punchL || st.punchR || st.grabL || st.grabR || st.headbutt || st.run || st.kick || st.duck || Math.abs(st.armY) > 0.2;
       const slot = asg.get(d.id);
       const who =
         slot !== undefined
@@ -64,7 +67,7 @@ export class ControlsScreen implements Screen {
           : `<span class="pl free">livre</span>`;
       const icon = d instanceof GamepadSource ? '🎮' : '⌨️';
       const detail = d instanceof GamepadSource ? `#${d.index + 1}` : '';
-      const pressed = [st.jump && 'pular', st.punchL && 'soco E', st.punchR && 'soco D', st.grabL && 'agarrar E', st.grabR && 'agarrar D', st.headbutt && 'cabeçada']
+      const pressed = [st.jump && 'pular', st.punchL && 'soco E', st.punchR && 'soco D', st.grabL && 'agarrar E', st.grabR && 'agarrar D', st.headbutt && 'cabeçada', st.kick && 'chute', st.run && 'correr', st.duck && 'abaixar']
         .filter(Boolean)
         .join(' · ');
       return `<div class="dev ${active ? 'active' : ''}"><span class="ic">${icon}</span><span class="nm">${d.label} ${detail}</span>${who}<span class="live">${

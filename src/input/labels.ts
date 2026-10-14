@@ -15,6 +15,9 @@ export interface ControlLabels {
   grab: string;
   headbutt: string;
   arms: string;
+  run: string;
+  kick: string;
+  duck: string;
   pause: string;
 }
 
@@ -27,6 +30,9 @@ export const KEYBOARD_A: ControlLabels = {
   grab: 'L',
   headbutt: 'U',
   arms: 'I',
+  run: 'Shift',
+  kick: 'O',
+  duck: 'C',
   pause: 'Esc',
 };
 
@@ -39,6 +45,9 @@ export const KEYBOARD_B: ControlLabels = {
   grab: 'Shift dir.',
   headbutt: 'Num 5',
   arms: 'Num 6',
+  run: 'Ctrl dir.',
+  kick: 'Num 4',
+  duck: 'Num 7',
   pause: 'Backspace',
 };
 
@@ -54,6 +63,9 @@ export function labelsFor(src: InputSource | undefined): ControlLabels {
       grab: `${n.grabL} / ${n.grabR}`,
       headbutt: n.headbutt,
       arms: 'Analógico dir.',
+      run: n.run,
+      kick: n.kick,
+      duck: n.duck,
       pause: n.pause,
     };
   }

@@ -44,10 +44,13 @@ No menu há a tela **Como jogar** (ela também aparece antes da primeira partida
 | Soco direito | K | 2 (num.) ou . | B | ○ |
 | Agarrar (segurar) | L | 3 (num.) ou Shift direito | LT / RT (mão esq. / dir.) | L2 / R2 |
 | Cabeçada | U | 5 (num.) | Y | △ |
+| Chutar (no ar: voadora) | O | 4 (num.) | RB | R1 |
+| Correr (segurar) | Shift esq. | Ctrl dir. / 9 (num.) | LB / L3 | L1 / L3 |
+| Abaixar (segurar) | C / Ctrl esq. | 7 (num.) | RS (clicar) | R3 |
 | Erguer os braços | I | 6 (num.) | Analógico direito | Analógico direito |
 | Pausar | Esc | Enter do numérico | Start | Options |
 
-Os botões de ombro (LB/RB, L1/R1) também agarram. O direcional também anda.
+LB/L1 corre e RB/R1 chuta. O direcional também anda. Abaixado (C), você passa por baixo do túnel do trem e das placas da estrada.
 
 **Manhas**
 - Segurando alguém (ou uma caixa), aperte **soco** para arremessar. Quem está

@@ -30,7 +30,7 @@ export class Football extends GameMap {
   hazard = 'Leve a bola até o gol do adversário — socar, chutar e cabecear vale!';
   music = 'gelatina' as const;
   killY = -40;
-  botLeaps = false;
+  botLeaps = true; // campo plano e fechado: robôs podem correr
   camera = {
     dir: new THREE.Vector3(0, 0.95, 0.9),
     minDist: 17,

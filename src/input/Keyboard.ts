@@ -2,8 +2,8 @@ import { emptyControl, type ControlState, type InputSource, type MenuAction } fr
 
 // ------------------------------------------------------------
 // Teclado. Dois jogadores dividem o mesmo teclado:
-//   Teclado A (jogador 1): WASD + J K L + espaço
-//   Teclado B (jogador 2): setas + teclado numérico
+//   Teclado A (jogador 1): WASD + J K L + espaço (Shift corre, O chuta, C abaixa)
+//   Teclado B (jogador 2): setas + teclado numérico (Ctrl dir. corre, Num 4 chuta, Num 7 abaixa)
 // Usamos event.code (posição física da tecla), então funciona
 // igual em teclado ABNT ou americano.
 // ------------------------------------------------------------
@@ -41,6 +41,9 @@ export interface KeyLayout {
   grab: string[];
   headbutt: string[];
   armsUp: string[];
+  run: string[];
+  kick: string[];
+  duck: string[];
   pause: string[];
 }
 
@@ -55,6 +58,9 @@ export const LAYOUT_A: KeyLayout = {
   grab: ['KeyL'],
   headbutt: ['KeyU'],
   armsUp: ['KeyI'],
+  run: ['ShiftLeft'],
+  kick: ['KeyO'],
+  duck: ['KeyC', 'ControlLeft'],
   pause: ['Escape'],
 };
 
@@ -69,6 +75,9 @@ export const LAYOUT_B: KeyLayout = {
   grab: ['Numpad3', 'ShiftRight'],
   headbutt: ['Numpad5', 'Slash'],
   armsUp: ['Numpad6', 'Quote'],
+  run: ['ControlRight', 'Numpad9'],
+  kick: ['Numpad4', 'Semicolon'],
+  duck: ['Numpad7', 'BracketRight'],
   pause: ['NumpadEnter', 'Backspace'],
 };
 
@@ -102,6 +111,9 @@ export class KeyboardSource implements InputSource {
     s.grabL = s.grabR = any(L.grab);
     s.headbutt = any(L.headbutt);
     s.armY = any(L.armsUp) ? 1 : 0;
+    s.run = any(L.run);
+    s.kick = any(L.kick);
+    s.duck = any(L.duck);
     s.pause = any(L.pause);
     return s;
   }

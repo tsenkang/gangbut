@@ -128,6 +128,12 @@ export class Fighter {
   punchR = newAttack();
   headbutt = newAttack();
   kick = newAttack();
+  /** Chute no chão (botão de chute): perna para a frente, sem cair. */
+  frontKick = newAttack();
+  /** Abaixado (segurando o botão). */
+  ducking = false;
+  /** Correndo (segurando o botão). */
+  running = false;
 
   /** Comemorando (vencedor da rodada). */
   celebrating = false;
@@ -334,6 +340,15 @@ export class Fighter {
 
       // Golpes
       if (pressed('headbutt') && this.headbutt.t < 0) this.startAttack(this.headbutt, env, 'headbutt');
+      // Chute: no chão é um chute para a frente; no ar vira voadora
+      if (pressed('kick') && this.kick.t < 0 && this.frontKick.t < 0) {
+        if (this.grounded && this.jumpT <= 0) this.startAttack(this.frontKick, env, 'kick');
+        else this.startAttack(this.kick, env, 'kick');
+      }
+      // Abaixar e correr (segurando)
+      const holdingSomething = this.hands.L.holding() || this.hands.R.holding();
+      this.ducking = inp.duck && this.grounded;
+      this.running = inp.run && !this.ducking && !this.lifting && !holdingSomething && moveMag > 0.3;
       for (const side of ['L', 'R'] as const) {
         const key = side === 'L' ? 'punchL' : 'punchR';
         if (!pressed(key)) continue;
@@ -411,7 +426,8 @@ export class Fighter {
       // Desmaiado: solta tudo.
       if (this.hands.L.holding()) this.hands.L.release();
       if (this.hands.R.holding()) this.hands.R.release();
-      this.punchL.t = this.punchR.t = this.headbutt.t = this.kick.t = -1;
+      this.punchL.t = this.punchR.t = this.headbutt.t = this.kick.t = this.frontKick.t = -1;
+      this.ducking = this.running = false;
       this.pullT = -1;
       this.crouchT = -1;
     }
@@ -544,7 +560,7 @@ export class Fighter {
    */
   private shoulderBump(env: FighterEnv, dt: number) {
     this.shoveCd -= dt;
-    if (this.shoveCd > 0 || !this.grounded || this.speed < 3.3) return;
+    if (this.shoveCd > 0 || !this.grounded || this.speed < (this.running ? 4.6 : 3.6)) return;
     if (this.hands.L.holding() || this.hands.R.holding()) return;
     const me = this.pos('chest');
     const v = this.vel('chest').sub(this.groundVel).setY(0);
@@ -555,7 +571,7 @@ export class Fighter {
       if (d.length() > 0.95 || d.setY(0).normalize().dot(dir) < 0.6) continue;
       this.shoveCd = 0.8;
       const push = dir.clone().setY(0.25).normalize();
-      o.knock(push, 1.8 + this.speed * 0.3);
+      o.knock(push, 1.8 + this.speed * (this.running ? 0.55 : 0.3));
       o.lastAttacker = this;
       o.lastAttackerAt = env.time;
       o.addDizzy(6);
@@ -749,7 +765,8 @@ export class Fighter {
     const pel = this.part('pelvis');
     const chest = this.part('chest');
     const heavy = this.lifting ? 0.55 : this.hands.L.holding() || this.hands.R.holding() ? 0.7 : 1;
-    const target = move.clone().multiplyScalar(TUNING.walkSpeed * heavy);
+    const gait = this.running ? 1.65 : this.ducking ? 0.6 : 1;
+    const target = move.clone().multiplyScalar(TUNING.walkSpeed * heavy * gait);
     // andar é relativo ao chão: em cima de algo que se mexe, vou junto
     target.x += this.groundVel.x;
     target.z += this.groundVel.z;
@@ -822,7 +839,7 @@ export class Fighter {
       // Sobe e desce a cada passo (gingado) e se agacha antes do pulo.
       const bob = Math.abs(Math.sin(this.walkPhase)) * 0.07 * Math.min(1, this.speed / 3) - 0.035 * Math.min(1, this.speed / 3);
       const reachingLow = this.grabAim ? Math.min(0.32, Math.max(0, this.pos('chest').y - this.grabAim.y - 0.2) * 0.6) : 0;
-      const crouch = (this.crouchT >= 0 ? 0.24 : 0) + reachingLow;
+      const crouch = (this.crouchT >= 0 ? 0.24 : 0) + (this.ducking ? 0.36 : 0) + reachingLow;
       const err = DIM.hover + bob - crouch - this.groundDist;
       const vy = pel.linvel().y;
       const acc = THREE.MathUtils.clamp(err * 170 - vy * 20, -25, 70) - GRAVITY;
@@ -881,6 +898,10 @@ export class Fighter {
     roll += Math.sin(t * 3.3 + 1) * 0.3 * wob;
     if (this.hurtT > 0) pitch -= 0.5; // se encolhe para trás ao levar soco
     if (this.crouchT >= 0) pitch += 0.25; // agachadinha antes do pulo
+    if (this.ducking) pitch += 0.55; // abaixado: corpo dobrado para a frente
+    if (this.running) pitch += 0.3 * Math.min(1, this.speed / 6); // correndo: inclinado
+    const fkt = this.frontKick.t;
+    if (fkt >= 0) pitch += fkt < 0.12 ? 0.1 : -0.35; // chute: joga o corpo para trás
     if (this.grabAim) pitch += this.grabAim.y < this.pos('chest').y - 0.3 ? 0.75 : 0.15; // se curva para pegar alguém no chão
     const hb = this.headbutt.t;
     if (hb >= 0) pitch += hb < 0.08 ? -0.5 : hb < 0.35 ? 1.1 : 0.3;
@@ -935,7 +956,12 @@ export class Fighter {
       const sideV = left.clone().multiplyScalar(sx);
       const d = DOWN.clone().addScaledVector(sideV, 0.1);
       let str = 0.3;
-      if (kt >= 0 && kt < 0.5) {
+      if (fkt >= 0 && side === 'R' && fkt < 0.42) {
+        // chute no chão: puxa a perna para trás e manda para a frente
+        if (fkt < 0.12) d.addScaledVector(fwd, -0.5);
+        else d.copy(fwd).multiplyScalar(1.25).addScaledVector(DOWN, 0.2);
+        str = 0.75;
+      } else if (kt >= 0 && kt < 0.5) {
         d.copy(fwd).multiplyScalar(1.1).addScaledVector(DOWN, 0.25);
         str = 0.6;
       } else if (held) {
@@ -1131,6 +1157,29 @@ export class Fighter {
         }
         if (hb.t >= 0.1 && hb.t < 0.32) this.testHit(env, this.pos('head'), DIM.headR + 0.08, hb, TUNING.headbuttPower, 'headbutt', this.part('head'));
         if (hb.t > 0.7) hb.t = -1;
+      }
+    }
+
+    const fk = this.frontKick;
+    if (fk.t >= 0) {
+      const before = fk.t;
+      fk.t += dt;
+      if (dead) fk.t = -1;
+      else {
+        if (before === 0) {
+          // passinho para a frente no chute
+          for (const n of ['pelvis', 'chest'] as PartName[]) {
+            const b = this.part(n);
+            const v = b.linvel();
+            b.setLinvel({ x: v.x + fk.aim.x * 1.6, y: v.y, z: v.z + fk.aim.z * 1.6 }, true);
+          }
+        }
+        if (fk.t >= 0.12 && fk.t < 0.34) {
+          const leg = this.part('legR');
+          const foot = v3(leg.translation()).add(new THREE.Vector3(0, -DIM.legHH - 0.05, 0).applyQuaternion(q4(leg.rotation())));
+          this.testHit(env, foot, DIM.legR + 0.16, fk, TUNING.kickPower * 0.75, 'kick', leg);
+        }
+        if (fk.t > 0.55) fk.t = -1;
       }
     }
 

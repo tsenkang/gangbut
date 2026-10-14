@@ -22,6 +22,8 @@ export const BTN = {
   rt: 7,
   select: 8,
   start: 9,
+  l3: 10,
+  r3: 11,
   dUp: 12,
   dDown: 13,
   dLeft: 14,
@@ -57,8 +59,8 @@ export function padLabel(t: PadType) {
 /** Nomes dos botões para mostrar na tela, de acordo com o tipo do controle. */
 export function buttonNames(t: PadType) {
   if (t === 'playstation')
-    return { jump: '✕', punchL: '□', punchR: '○', headbutt: '△', grabL: 'L2', grabR: 'R2', pause: 'Options' };
-  return { jump: 'A', punchL: 'X', punchR: 'B', headbutt: 'Y', grabL: 'LT', grabR: 'RT', pause: 'Start' };
+    return { jump: '✕', punchL: '□', punchR: '○', headbutt: '△', grabL: 'L2', grabR: 'R2', run: 'L1', kick: 'R1', duck: 'R3', pause: 'Options' };
+  return { jump: 'A', punchL: 'X', punchR: 'B', headbutt: 'Y', grabL: 'LT', grabR: 'RT', run: 'LB', kick: 'RB', duck: 'RS', pause: 'Start' };
 }
 
 /** true quando o navegador não deixa ler controles (ex.: página dentro de um iframe sem permissão). */
@@ -126,7 +128,7 @@ export function padView(gp: Gamepad, type: PadType): PadView {
   const trig = (i: number) => gp.axes.length > i && ax(i) > 0.1;
   if (type === 'playstation') {
     // DualSense / DualShock sem mapeamento padrão
-    const map: Record<number, number> = { 0: 1, 1: 2, 2: 0, 3: 3, 4: 4, 5: 5, 8: 8, 9: 9 };
+    const map: Record<number, number> = { 0: 1, 1: 2, 2: 0, 3: 3, 4: 4, 5: 5, 8: 8, 9: 9, 10: 10, 11: 11 };
     const h = hat(gp.axes[9]);
     return {
       btn: (i, t) => {
@@ -145,7 +147,7 @@ export function padView(gp: Gamepad, type: PadType): PadView {
     };
   }
   // Xbox sem mapeamento padrão (Linux): gatilhos e direcional são eixos
-  const map: Record<number, number> = { 0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 8: 6, 9: 7 };
+  const map: Record<number, number> = { 0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 8: 6, 9: 7, 10: 9, 11: 10 };
   return {
     btn: (i, t) => {
       if (i === BTN.lt) return trig(2);
@@ -210,9 +212,12 @@ export class GamepadSource implements InputSource {
     s.punchL = gp.btn(BTN.west);
     s.punchR = gp.btn(BTN.east);
     s.headbutt = gp.btn(BTN.north);
-    // Gatilhos (e também os botões de ombro) agarram.
-    s.grabL = gp.btn(BTN.lt, 0.3) || gp.btn(BTN.lb);
-    s.grabR = gp.btn(BTN.rt, 0.3) || gp.btn(BTN.rb);
+    // Gatilhos agarram; LB corre, RB chuta, R3 abaixa (L3 também corre).
+    s.grabL = gp.btn(BTN.lt, 0.3);
+    s.grabR = gp.btn(BTN.rt, 0.3);
+    s.run = gp.btn(BTN.lb) || gp.btn(BTN.l3);
+    s.kick = gp.btn(BTN.rb);
+    s.duck = gp.btn(BTN.r3);
     // Segurar um gatilho também levanta um pouco os braços.
     if ((s.grabL || s.grabR) && s.armY === 0) s.armY = 0.1;
     s.pause = gp.btn(BTN.start);

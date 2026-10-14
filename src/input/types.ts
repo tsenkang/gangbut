@@ -15,6 +15,10 @@ export interface ControlState {
   grabL: boolean;
   grabR: boolean;
   headbutt: boolean;
+  /** Correr (segurar), chute no chão e abaixar (segurar). */
+  run: boolean;
+  kick: boolean;
+  duck: boolean;
   pause: boolean;
 }
 
@@ -28,6 +32,9 @@ export const emptyControl = (): ControlState => ({
   grabL: false,
   grabR: false,
   headbutt: false,
+  run: false,
+  kick: false,
+  duck: false,
   pause: false,
 });
 

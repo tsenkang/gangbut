@@ -87,7 +87,8 @@ export class Bot implements InputSource {
     const f = this.fighter;
     const o = this.out;
     // Botões "de toque" voltam a solto a cada passo (para gerar novas apertadas).
-    o.punchL = o.punchR = o.headbutt = o.jump = false;
+    o.punchL = o.punchR = o.headbutt = o.jump = o.kick = false;
+    o.run = o.duck = false;
     if (!f || !f.alive || f.ko) {
       o.grabL = o.grabR = false;
       o.moveX = o.moveY = 0;
@@ -108,6 +109,12 @@ export class Bot implements InputSource {
       if (this.holdPunch > 0 && !f.hands.L.holding() && !f.hands.R.holding()) o[this.holdSide] = true;
     }
 
+    // Corre quando o caminho está livre e firme (robôs mais espertos correm mais)
+    if (this.wantDir.lengthSq() > 0.64 && f.grounded && this.leapT <= 0 && this.runner && !f.ko && this.arena.map.botLeaps) {
+      const me = f.pos('chest');
+      const d = this.wantDir.clone().normalize();
+      if (this.groundAt(me.clone().addScaledVector(d, 1.6)) && this.groundAt(me.clone().addScaledVector(d, 2.8))) o.run = true;
+    }
     // Converte a direção do mundo para "analógico" relativo à câmera.
     this.dir.lerp(this.wantDir, 0.2);
     const sp = Math.min(1, this.dir.length()) * this.p.speed;
@@ -215,6 +222,7 @@ export class Bot implements InputSource {
     // Um pouco de erro na mira (robô fácil anda meio torto)
     this.aimNoise = (Math.random() * 2 - 1) * this.p.aimError;
     this.careful = Math.random() < this.p.edgeCare;
+    this.runner = Math.random() < (this.difficulty === 'dificil' ? 0.75 : this.difficulty === 'medio' ? 0.55 : 0.25);
     this.heed = Math.random() < this.p.hazardCare;
   }
   private heed = true;
@@ -222,6 +230,7 @@ export class Bot implements InputSource {
   private edgeTick = 0;
   private aimNoise = 0;
   private careful = true;
+  private runner = false;
 
   private act(dt: number) {
     const f = this.fighter;
@@ -415,8 +424,9 @@ export class Bot implements InputSource {
           // bola na frente: soco, cabeçada ou voadora na bola
           this.punchTimer = (1 / this.p.punchRate) * (0.5 + Math.random() * 0.5);
           const r = Math.random();
-          if (r < 0.15 && f.grounded && this.difficulty !== 'facil') o.jump = true;
-          else if (r < 0.3) o.headbutt = true;
+          if (r < 0.12 && f.grounded && this.difficulty !== 'facil') o.jump = true;
+          else if (r < 0.55 && f.grounded) o.kick = true; // chuta a bola
+          else if (r < 0.68) o.headbutt = true;
           else {
             this.toggle = !this.toggle;
             if (this.toggle) o.punchL = true;
@@ -456,6 +466,7 @@ export class Bot implements InputSource {
         const r = Math.random();
         if (r < this.p.headbutt) o.headbutt = true;
         else if (r < this.p.headbutt + this.p.kick && f.grounded) o.jump = true; // prepara voadora
+        else if (r < this.p.headbutt + this.p.kick + 0.12 && f.grounded) o.kick = true; // chute no chão
         else {
           this.toggle = !this.toggle;
           if (this.toggle) o.punchL = true;

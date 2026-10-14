@@ -21,7 +21,7 @@ export class HowToPlay implements Screen {
     const pad = [...input.pads.values()][0];
     const P = labelsFor(pad ?? ({ id: 'pad', kind: 'gamepad' } as never));
     const padName = pad ? pad.label : 'Controle';
-    const padLabels = pad ? P : { ...P, move: 'Analógico esq.', arms: 'Analógico dir.', jump: 'A / ✕', punchL: 'X / □', punchR: 'B / ○', punch: 'X B / □ ○', grab: 'LT RT / L2 R2', headbutt: 'Y / △', pause: 'Start' };
+    const padLabels = pad ? P : { ...P, move: 'Analógico esq.', arms: 'Analógico dir.', jump: 'A / ✕', punchL: 'X / □', punchR: 'B / ○', punch: 'X B / □ ○', grab: 'LT RT / L2 R2', headbutt: 'Y / △', run: 'LB / L1', kick: 'RB / R1', duck: 'RS / R3', pause: 'Start' };
     const keys = (a: string, b: string, c: string) => `<div class="keys"><span><i>J1</i><kbd>${a}</kbd></span><span><i>J2</i><kbd>${b}</kbd></span><span><i>🎮</i><kbd>${c}</kbd></span></div>`;
 
     this.el = h('div', 'screen howto');
@@ -34,6 +34,9 @@ export class HowToPlay implements Screen {
         <div class="move hot"><h3>Agarrar <small>(segure)</small></h3><p>Estica os braços e segura o que tocar: gente, caixas, bordas. Soltou o botão, soltou a mão.</p>${keys(A.grab, B.grab, padLabels.grab)}</div>
         <div class="move hot"><h3>Erguer e arremessar</h3><p>Segurando com as <b>duas mãos</b>, levante os braços para <b>erguer acima da cabeça</b>. Depois aperte <b>soco</b> ou <b>solte o agarrar</b>: de lá de cima (ou correndo) voa muito mais longe!</p>${keys(A.arms + ' + ' + A.punchL, B.arms + ' + ' + B.punchL, padLabels.arms + ' + ' + padLabels.punchL)}</div>
         <div class="move"><h3>Pular / subir</h3><p>Pendurado numa borda (agarrando), aperte <b>pular</b> para subir.</p>${keys(A.jump, B.jump, padLabels.jump)}</div>
+        <div class="move"><h3>Chutar</h3><p>Chute para a frente (mais forte que o soco, ótimo na bola do futebol). No ar, o chute vira <b>voadora</b>.</p>${keys(A.kick, B.kick, padLabels.kick)}</div>
+        <div class="move"><h3>Correr <small>(segure)</small></h3><p>Bem mais rápido — e dá um <b>tranco de ombro</b> forte em quem estiver na frente.</p>${keys(A.run, B.run, padLabels.run)}</div>
+        <div class="move"><h3>Abaixar <small>(segure)</small></h3><p>Fica agachado: passa por baixo do <b>túnel</b> do trem e das <b>placas</b> da estrada.</p>${keys(A.duck, B.duck, padLabels.duck)}</div>
         <div class="move"><h3>Cabeçada / voadora</h3><p>Cabeçada é forte, mas te deixa um pouco tonto. Pule e aperte <b>soco</b>: voadora (e você cai de costas).</p>${keys(A.headbutt, B.headbutt, padLabels.headbutt)}</div>
       </div>
       <div class="combo"><b>Combo básico:</b>
