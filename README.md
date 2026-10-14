@@ -19,7 +19,7 @@ Recomendado: Chrome ou Edge (melhor suporte a controles e vibração).
 
 - `npm run build` gera a versão final em `dist/`.
 - Atalho para ver uma partida só de robôs: `http://localhost:5173/?demo=telhado`
-  (também `fabrica`, `rodagigante`, `trem`, `incinerador`, `vigas`, `demolicao`, `elevadores`, `farol`, `caminhoes`, `teleferico`, `ventiladores`, `barco` ou `rodizio`).
+  (também `fabrica`, `rodagigante`, `trem`, `incinerador`, `vigas`, `demolicao`, `elevadores`, `farol`, `caminhoes`, `teleferico`, `ventiladores`, `barco`, `aquario`, `ponte`, `metro` ou `rodizio`).
 
 ## Como jogar
 
@@ -98,6 +98,9 @@ personagem e cor. Para criar uma nova, veja `src/characters/Costumes.ts`.
 | 🚡 Teleférico | Duas cabines vão e voltam entre estações nas montanhas e se cruzam no meio |
 | 🌀 Ventiladores | Terraço com ventiladores gigantes no chão: a grade pisca e joga quem está em cima lá no alto |
 | 🦈 Barco de Pesca | O barco balança no mar; tubarões pulam no convés, mordem alguém e tentam arrastar para o mar (aperte botões ou soquem o tubarão 3 vezes para soltar) |
+| 🐙 Aquário | Passarelas estreitas sobre um tanque gigante; tentáculos de polvo sobem, batem e varrem a passarela |
+| 🌉 Ponte Levadiça | A sirene toca e as duas metades da ponte sobem: todo mundo escorrega para o vão sobre o rio |
+| 🚇 Metrô | Plataforma entre dois trilhos; as luzes piscam e um trem passa a toda, atropelando quem estiver no trilho |
 
 ## Como adicionar um mapa novo
 

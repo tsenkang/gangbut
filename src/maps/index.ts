@@ -12,6 +12,9 @@ import { Trucks } from './Trucks';
 import { CableCars } from './CableCars';
 import { Vents } from './Vents';
 import { Boat } from './Boat';
+import { Aquarium } from './Aquarium';
+import { Drawbridge } from './Drawbridge';
+import { Subway } from './Subway';
 
 // ------------------------------------------------------------
 // Lista de mapas. Para adicionar um mapa novo, importe a classe
@@ -32,6 +35,9 @@ export const MAPS: { id: string; make: () => GameMap }[] = [
   { id: 'teleferico', make: () => new CableCars() },
   { id: 'ventiladores', make: () => new Vents() },
   { id: 'barco', make: () => new Boat() },
+  { id: 'aquario', make: () => new Aquarium() },
+  { id: 'ponte', make: () => new Drawbridge() },
+  { id: 'metro', make: () => new Subway() },
 ];
 
 export const makeMap = (id: string) => (MAPS.find((m) => m.id === id) ?? MAPS[0]).make();

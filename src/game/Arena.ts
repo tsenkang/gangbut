@@ -33,6 +33,7 @@ const OUT_LINES: Record<string, string[]> = {
   lava: ['TOSTADO!', 'QUE CALOR!', 'VIROU CHURRASCO!'],
   water: ['TCHIBUM!', 'AFUNDOU!', 'GELATINA NA ÁGUA!'],
   left: ['FICOU PRA TRÁS!', 'PERDEU O TREM!'],
+  train: ['ATROPELADO!', 'PEGOU O TREM ERRADO!', 'FIUUU!'],
   ko: ['DORMIU DE VEZ!', 'APAGOU!'],
 };
 const pick = <T>(a: T[]) => a[Math.floor(Math.random() * a.length)];
@@ -285,7 +286,8 @@ export class Arena implements ArenaApi {
     for (const f of this.fighters) {
       if (f.removed) continue;
       if (f.alive) {
-        let kind: DeathKind | 'ko' = this.map.deathAt(f.pos('chest'));
+        let kind: DeathKind | 'ko' = this.map.deathOf(f);
+        if (kind === 'none') kind = this.map.deathAt(f.pos('chest'));
         if (kind === 'none') kind = this.map.deathAt(f.pos('pelvis'));
         if (kind === 'none' && f.koTotal > 22) kind = 'ko';
         if (kind !== 'none') this.eliminate(f, kind);
@@ -323,7 +325,7 @@ export class Arena implements ArenaApi {
         b.setGravityScale(0.15, true);
       }
     } else if (k === 'water') {
-      this.effects.splash(p, 0xff7eb6);
+      this.effects.splash(p, 0xcfefff);
       this.sound('splash', 1);
     }
     this.sound('elim', 0.8);

@@ -53,7 +53,7 @@ export interface Lighting {
   shadowExtent?: number;
 }
 
-export type DeathKind = 'fall' | 'lava' | 'water' | 'left' | 'none';
+export type DeathKind = 'fall' | 'lava' | 'water' | 'left' | 'train' | 'none';
 
 export abstract class GameMap {
   abstract id: string;
@@ -90,6 +90,11 @@ export abstract class GameMap {
    */
   safeSpot(_p: THREE.Vector3): THREE.Vector3 {
     return this.camera.center;
+  }
+
+  /** Perigos que tiram alguém do jogo direto (ex.: atropelado pelo trem). */
+  deathOf(_f: Fighter): DeathKind {
+    return 'none';
   }
 
   deathAt(p: THREE.Vector3): DeathKind {
