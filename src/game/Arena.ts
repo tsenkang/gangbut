@@ -55,8 +55,8 @@ export class Arena implements ArenaApi {
   onAnnounce: (text: string, cls?: string) => void = () => {};
   /** Liga/desliga perigos (desligado na contagem regressiva). */
   hazardsOn = false;
-  /** Desmaiar demais tira do jogo? (no futebol, não: acorda e volta) */
-  koOut = true;
+  /** Desmaiar demais tira do jogo? Não: como no Gang Beasts, só sai quem cai do mapa. */
+  koOut = false;
   /** Multiplicador de dano (morte súbita = 2). */
   damageMult = 1;
   private lastPopAt = -9;
@@ -159,13 +159,13 @@ export class Arena implements ArenaApi {
       return;
     }
     power *= this.damageMult;
-    const knock = kind === 'punch' ? 2.1 : kind === 'bigpunch' ? 4.6 : kind === 'headbutt' ? 3.8 : kind === 'kick' ? 5 : 3;
+    const knock = kind === 'punch' ? 2.1 : kind === 'bigpunch' ? 4.6 : kind === 'headbutt' ? 2.6 : kind === 'kick' ? 3.4 : 3;
     const wasKo = victim.ko;
     victim.receiveHit(power, dir, part ?? partAt(victim, point), knock);
     if (attacker) {
       victim.lastAttacker = attacker;
       victim.lastAttackerAt = this.time;
-      if (kind === 'headbutt') attacker.addDizzy(4); // ai, minha cabeça
+      if (kind === 'headbutt') attacker.addDizzy(9); // ai, minha cabeça (cabeçada tem preço)
     }
     const strong = power >= 18 || (!wasKo && victim.ko);
     this.effects.drops(point, victim.appearance.color, dir, strong ? 1.5 : 0.8);

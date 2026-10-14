@@ -37,7 +37,7 @@ export class HowToPlay implements Screen {
         <div class="move"><h3>Chutar</h3><p>Chute para a frente (mais forte que o soco, ótimo na bola do futebol). No ar, o chute vira <b>voadora</b>.</p>${keys(A.kick, B.kick, padLabels.kick)}</div>
         <div class="move"><h3>Correr <small>(segure)</small></h3><p>Bem mais rápido — e dá um <b>tranco de ombro</b> forte em quem estiver na frente.</p>${keys(A.run, B.run, padLabels.run)}</div>
         <div class="move"><h3>Abaixar <small>(segure)</small></h3><p>Fica agachado: passa por baixo do <b>túnel</b> do trem e das <b>placas</b> da estrada.</p>${keys(A.duck, B.duck, padLabels.duck)}</div>
-        <div class="move"><h3>Cabeçada / voadora</h3><p>Cabeçada é forte, mas te deixa um pouco tonto. Pule e aperte <b>soco</b>: voadora (e você cai de costas).</p>${keys(A.headbutt, B.headbutt, padLabels.headbutt)}</div>
+        <div class="move"><h3>Cabeçada / voadora</h3><p>Cabeçada empurra, mas te deixa bem tonto. Pule e aperte <b>soco</b> (ou chute): voadora — e você cai de costas.</p>${keys(A.headbutt, B.headbutt, padLabels.headbutt)}</div>
       </div>
       <div class="combo"><b>Combo básico:</b>
         <span>1. Soque até ele desmaiar</span><span>→</span><span>2. Segure o agarrar</span><span>→</span><span>3. Leve até a borda</span><span>→</span><span>4. Soco para jogar!</span>

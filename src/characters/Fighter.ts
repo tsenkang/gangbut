@@ -50,14 +50,15 @@ export const TUNING = {
   walkSpeed: 4.3,
   jumpSpeed: 6.9,
   turnSpeed: 9,
-  koBase: 2.8, // segundos de nocaute no primeiro desmaio
-  koStep: 0.9, // cada nocaute dura mais
-  koMax: 7,
-  koLimit: 22, // tempo total desmaiado que elimina
+  koBase: 2.4, // segundos de nocaute no primeiro desmaio
+  koStep: 0.3, // cada nocaute dura um pouquinho mais
+  koMax: 4.5,
+  wakeGrace: 3.5, // segundos depois de acordar em que a tontura sobe bem devagar
   dizzyDecay: 7, // quanto a tontura cai por segundo
   punchPower: 13,
-  headbuttPower: 22,
-  kickPower: 26,
+  headbuttPower: 14,
+  kickPower: 17, // voadora
+  frontKickPower: 14, // chute no chão
 };
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -94,6 +95,10 @@ export class Fighter {
   koTimer = 0;
   koCount = 0;
   koTotal = 0;
+  /** Depois de acordar: tempo em que a tontura sobe devagar. */
+  graceT = 0;
+  /** Tontura recebida nos últimos instantes (cai sozinha). */
+  private recentDizzy = 0;
   /** Modo futebol: time (0 vermelho, 1 azul; -1 = cada um por si), colegas e função do robô. */
   team = -1;
   teamMates: Fighter[] = [];
@@ -651,11 +656,13 @@ export class Fighter {
 
   addDizzy(n: number) {
     if (!this.alive) return;
-    if (this.ko) {
-      // Apanhar desmaiado prolonga um pouquinho o nocaute.
-      this.koTimer = Math.min(this.koTimer + n * 0.02, TUNING.koMax);
-      return;
-    }
+    // Desmaiado não acumula mais nada (bater em quem está caído não prende ninguém para sempre)
+    if (this.ko) return;
+    // Acabou de acordar: resiste (senão dá para nocautear de novo na hora, sem parar)
+    if (this.graceT > 0) n *= 0.25;
+    // Pancada atrás de pancada rende cada vez menos (não dá para prender alguém socando sem parar)
+    if (this.recentDizzy > 40) n *= 0.4;
+    this.recentDizzy += n;
     this.dizzy += n;
     if (this.dizzy >= 100) this.knockOut();
   }
@@ -722,6 +729,8 @@ export class Fighter {
       this._pendingKo = false;
       env.onEvent(this, 'ko');
     }
+    this.graceT -= dt;
+    this.recentDizzy = Math.max(0, this.recentDizzy - 28 * dt);
     if (this.ko) {
       this.koTimer -= dt;
       this.koTotal += dt;
@@ -730,6 +739,7 @@ export class Fighter {
         this.dizzy = 35;
         this.strength = 0.05;
         this.wakeT = 1.6;
+        this.graceT = TUNING.wakeGrace;
         env.onEvent(this, 'wake');
       }
     } else if (this.hurtT < -1.2) {
@@ -1177,7 +1187,7 @@ export class Fighter {
         if (fk.t >= 0.12 && fk.t < 0.34) {
           const leg = this.part('legR');
           const foot = v3(leg.translation()).add(new THREE.Vector3(0, -DIM.legHH - 0.05, 0).applyQuaternion(q4(leg.rotation())));
-          this.testHit(env, foot, DIM.legR + 0.16, fk, TUNING.kickPower * 0.75, 'kick', leg);
+          this.testHit(env, foot, DIM.legR + 0.16, fk, TUNING.frontKickPower, 'kick', leg);
         }
         if (fk.t > 0.55) fk.t = -1;
       }
