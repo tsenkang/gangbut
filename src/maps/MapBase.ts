@@ -29,7 +29,7 @@ export interface ArenaApi {
 export interface Prop {
   body: RAPIER.RigidBody;
   mesh: THREE.Object3D;
-  kind: 'caixa' | 'barril' | 'bola';
+  kind: 'caixa' | 'barril' | 'bola' | 'cone';
 }
 
 export interface MapContext {
@@ -200,6 +200,20 @@ export abstract class GameMap {
         r.position.y = y;
         g.add(r);
       }
+      mesh = g;
+    } else if (kind === 'cone') {
+      // cone de trânsito (leve: bom de arremessar)
+      desc = RAPIER.ColliderDesc.cone(0.38, 0.28).setMass(1.2);
+      const g = new THREE.Group();
+      const orange = this.material(color ?? 0xff6b1a, { roughness: 0.6 });
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.76, 16), orange);
+      g.add(cone);
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.19, 0.12, 16), this.material(0xffffff));
+      band.position.y = 0.05;
+      g.add(band);
+      const base = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.06, 0.62), orange);
+      base.position.y = -0.38;
+      g.add(base);
       mesh = g;
     } else {
       desc = RAPIER.ColliderDesc.ball(0.45).setMass(2).setRestitution(0.7);

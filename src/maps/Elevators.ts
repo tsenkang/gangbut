@@ -11,8 +11,9 @@ import { cityBackdrop, grimeTexture, hazeBelow, iBeamGeometry } from './City';
 // cima tem uma viga que raspa a cabeça de quem ficar em pé.
 // ------------------------------------------------------------
 
-const CARS = [-3.3, 0, 3.3]; // x de cada elevador
-const CW = 1.45; // meia largura (x)
+const CARS = [-2.3, 2.3]; // x de cada elevador (são dois)
+const CW = 1.75; // meia largura (x)
+const CABLE_HP = 3; // pancadas para arrebentar um cabo
 const CD = 2.1; // meia profundidade (z)
 const LOW = -2.2;
 const HIGH = 5.4;
@@ -24,14 +25,18 @@ interface Car {
   phase: number;
   y: number;
   speed: number;
+  cables: { mesh: THREE.Mesh; sx: number; hp: number }[];
+  /** Despencando (os dois cabos arrebentaram): velocidade de queda, ou -1. */
+  fallV: number;
+  respawn: number;
 }
 
 export class Elevators extends GameMap {
   id = 'elevadores';
   name = 'Elevadores';
   emoji = '🛗';
-  description = 'Três elevadores de obra subindo e descendo na fachada de um prédio.';
-  hazard = 'Os elevadores não esperam ninguém! E lá no alto a viga raspa a cabeça.';
+  description = 'Dois elevadores de obra subindo e descendo na fachada de um prédio.';
+  hazard = 'Soque os cabos do elevador: com um partido ele entorta, com os dois ele DESPENCA (com quem estiver dentro)!';
   music = 'telhado' as const;
   killY = -12;
   botLeaps = false; // o elevador some debaixo de quem pula
@@ -49,6 +54,7 @@ export class Elevators extends GameMap {
   private blink: THREE.Mesh[] = [];
   private beamHitCd = new Map<object, number>();
   private lamps: THREE.MeshBasicMaterial[] = [];
+  private cableCd = new Map<object, number>();
 
   build() {
     this.lights({
@@ -85,7 +91,7 @@ export class Elevators extends GameMap {
 
     // ---------------- estrutura do poço (só desenho) e viga de cima
     const steel = new THREE.MeshStandardMaterial({ color: 0x3f6f9c, roughness: 0.6, metalness: 0.4 });
-    for (const x of [-5, -1.65, 1.65, 5]) {
+    for (const x of [-4.3, 0, 4.3]) {
       for (const z of [-2.45]) {
         const col = new THREE.Mesh(iBeamGeometry(40, 0.4, 0.4), steel);
         col.rotation.x = Math.PI / 2;
@@ -107,7 +113,7 @@ export class Elevators extends GameMap {
     // ---------------- os três elevadores (cinemáticos)
     const world = this.ctx.physics.world;
     CARS.forEach((x, i) => {
-      const phase = (i * Math.PI * 2) / 3;
+      const phase = i * Math.PI;
       const y = this.carY(phase, 0);
       const body = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(x, y, 0));
       const add = (desc: RAPIER.ColliderDesc) => {
@@ -142,11 +148,13 @@ export class Elevators extends GameMap {
       const bar2 = bar.clone();
       bar2.position.z = -CD;
       g.add(bar2);
-      // cabos subindo
-      for (const sx of [-0.9, 0.9]) {
-        const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 30, 4), this.material(0x1a1a1a));
+      // cabos subindo (dá para arrebentar a socos!)
+      const cables: Car['cables'] = [];
+      for (const sx of [-1.1, 1.1]) {
+        const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 30, 6), this.material(0x1a1a1a, { metalness: 0.6 }));
         cable.position.set(sx, 15, -CD + 0.1);
         g.add(cable);
+        cables.push({ mesh: cable, sx, hp: CABLE_HP });
       }
       // luz que avisa: verde = subindo, vermelho = descendo
       const lampMat = new THREE.MeshBasicMaterial({ color: 0x33ff66, toneMapped: false });
@@ -162,7 +170,7 @@ export class Elevators extends GameMap {
       });
       this.ctx.root.add(g);
       this.ctx.links.add(body, g);
-      this.cars.push({ body, x, phase, y, speed: 0 });
+      this.cars.push({ body, x, phase, y, speed: 0, cables, fallV: -1, respawn: 0 });
     });
 
     const city = cityBackdrop(this.ctx.root, { below: 60, radius: [40, 115], count: 40, walls: ['#5d5763', '#6b6370', '#4f5866', '#625b60'] });
@@ -196,14 +204,78 @@ export class Elevators extends GameMap {
     return new THREE.Vector3(Math.sign(p.x || 1) * 9.6, 0, 0);
   }
 
+  /** Socos, cabeçadas e voadoras nos cabos do elevador. */
+  private hitCables(c: Car, dt: number, arena: ArenaApi) {
+    for (const f of arena.fighters) {
+      if (!f.alive || f.removed) continue;
+      const cd = (this.cableCd.get(f) ?? 0) - dt;
+      this.cableCd.set(f, cd);
+      if (cd > 0) continue;
+      const pts: THREE.Vector3[] = [];
+      for (const [a, side] of [
+        [f.punchL, 'L'],
+        [f.punchR, 'R'],
+      ] as const)
+        if (a.t >= 0.08 && a.t < 0.28) pts.push(f.hands[side].position());
+      if (f.headbutt.t >= 0.1 && f.headbutt.t < 0.32) pts.push(f.pos('head'));
+      if (f.kick.t >= 0.06 && f.kick.t < 0.5) pts.push(f.pos('pelvis'));
+      for (const p of pts) {
+        for (const k of c.cables) {
+          if (k.hp <= 0) continue;
+          const near = Math.abs(p.x - (c.x + k.sx)) < 0.55 && Math.abs(p.z - (-CD + 0.1)) < 0.7 && p.y > c.y + 0.4 && p.y < c.y + 4;
+          if (!near) continue;
+          this.cableCd.set(f, 0.3);
+          k.hp--;
+          arena.effects.sparks(p, 0xfff1a8, 10, 5);
+          arena.sound('clank', 0.8, 1.3);
+          if (k.hp <= 0) {
+            k.mesh.visible = false;
+            arena.effects.text(p.clone().add(new THREE.Vector3(0, 0.6, 0)), 'TÉC!', 'big');
+            arena.sound('crack', 1, 1.2);
+            if (c.cables.every((q) => q.hp <= 0)) {
+              c.fallV = 0;
+              c.respawn = 6;
+              arena.announce('🛗 Os cabos arrebentaram! O ELEVADOR DESPENCOU!', 'out');
+              arena.shake(0.3);
+            } else arena.announce('🛗 Um cabo arrebentou! Mais um e o elevador cai!', 'tip');
+          }
+          return;
+        }
+      }
+    }
+  }
+
   update(dt: number, time: number, arena: ArenaApi) {
     this.clock += dt;
     this.cars.forEach((c, i) => {
-      const y = this.carY(c.phase, this.clock);
+      const broken = c.cables.filter((k) => k.hp <= 0);
+      let y: number;
+      if (c.fallV >= 0) {
+        // despencando
+        c.fallV += 19 * dt;
+        y = c.y - c.fallV * dt;
+        if (y < this.killY - 6) {
+          c.respawn -= dt;
+          y = this.killY - 6;
+          if (c.respawn <= 0) {
+            // um elevador novo chega, com cabos novos
+            c.fallV = -1;
+            for (const k of c.cables) {
+              k.hp = CABLE_HP;
+              k.mesh.visible = true;
+            }
+            y = this.carY(c.phase, this.clock);
+          }
+        }
+      } else y = this.carY(c.phase, this.clock);
       c.speed = (y - c.y) / Math.max(dt, 1e-4);
       c.y = y;
+      // um cabo partido: a cabine fica torta para aquele lado
+      const tilt = broken.length === 1 ? (broken[0].sx > 0 ? -0.2 : 0.2) : 0;
       c.body.setNextKinematicTranslation({ x: c.x, y, z: 0 });
-      this.lamps[i].color.setHex(c.speed > 0.05 ? 0x33ff66 : c.speed < -0.05 ? 0xff3344 : 0xffd23f);
+      c.body.setNextKinematicRotation(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), tilt));
+      this.lamps[i].color.setHex(c.fallV >= 0 ? 0xff3344 : c.speed > 0.05 ? 0x33ff66 : c.speed < -0.05 ? 0xff3344 : 0xffd23f);
+      if (c.fallV < 0) this.hitCables(c, dt, arena);
     });
 
     // A viga de cima raspa quem chegar lá em pé num elevador subindo

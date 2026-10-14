@@ -7,9 +7,11 @@ import type { Fighter } from '../characters/Fighter';
 // ------------------------------------------------------------
 // Mapa 10 — CAMINHÕES
 // Dois caminhões de baú lado a lado numa avenida elevada. A briga
-// é em cima dos baús. Os caminhões se afastam e se aproximam: na
-// hora que encostam, dá para pular de um para o outro. Placas de
-// trânsito passam por cima e derrubam quem estiver em pé.
+// é em cima dos baús. Os caminhões se afastam, se aproximam e um
+// passa o outro (vão para frente e para trás). O baú é oco e aberto
+// atrás: dá para entrar nele. Placas de trânsito passam por cima,
+// cada uma tapando uma faixa: pule para o caminhão do lado livre,
+// pendure-se na lateral ou se esconda dentro do baú.
 // ------------------------------------------------------------
 
 const SPEED = 22; // velocidade do cenário passando
@@ -21,6 +23,7 @@ interface Truck {
   body: RAPIER.RigidBody;
   side: number; // -1 = lá atrás, 1 = cá na frente
   z: number;
+  x: number; // um passa o outro: anda para frente e para trás
 }
 
 export class Trucks extends GameMap {
@@ -50,6 +53,7 @@ export class Trucks extends GameMap {
   private signWarned = false;
   private sign!: THREE.Group;
   private signHit = new Set<Fighter>();
+  private boards: THREE.Mesh[] = [];
 
   build() {
     this.lights({
@@ -109,11 +113,15 @@ export class Trucks extends GameMap {
         const c = this.ctx.physics.world.createCollider(desc.setFriction(1).setRestitution(0.05).setCollisionGroups(groups(G_WORLD, G_ALL)), body);
         this.ctx.physics.register(c, { kind: 'static', grabbable: true });
       };
-      add(RAPIER.ColliderDesc.cuboid(HALF_L, 1.4, HALF_W).setTranslation(0, -1.4, 0)); // baú (topo em y = 0)
+      // baú oco, aberto atrás (topo em y = 0; chão por dentro em y = -2.6)
+      add(RAPIER.ColliderDesc.cuboid(HALF_L, 0.08, HALF_W).setTranslation(0, -0.08, 0)); // teto
+      add(RAPIER.ColliderDesc.cuboid(HALF_L, 0.08, HALF_W).setTranslation(0, -2.72, 0)); // chão
+      for (const z of [-1, 1]) add(RAPIER.ColliderDesc.cuboid(HALF_L, 1.4, 0.08).setTranslation(0, -1.4, z * (HALF_W - 0.08))); // paredes
+      add(RAPIER.ColliderDesc.cuboid(0.08, 1.4, HALF_W).setTranslation(HALF_L - 0.08, -1.4, 0)); // frente
       add(RAPIER.ColliderDesc.cuboid(1.1, 1.05, HALF_W - 0.05).setTranslation(HALF_L + 1.3, -1.6, 0)); // cabine
       add(RAPIER.ColliderDesc.cuboid(HALF_L, 0.05, 0.05).setTranslation(0, -0.35, side * (HALF_W + 0.06))); // frisos laterais (dá para pendurar)
       this.ctx.links.add(body, this.truckMesh(colors[i], side));
-      this.trucks.push({ body, side, z });
+      this.trucks.push({ body, side, z, x: 0 });
     }
 
     // ---------------- cenário que passa: postes, prédios e placas
@@ -149,9 +157,8 @@ export class Trucks extends GameMap {
 
     // placa de trânsito gigante (pórtico) que passa de vez em quando
     this.sign = new THREE.Group();
-    const green = new THREE.Mesh(
-      new THREE.BoxGeometry(0.3, 2, 9),
-      new THREE.MeshStandardMaterial({
+    const greenGeo = new THREE.BoxGeometry(0.3, 2, 4.6);
+    const greenMat = new THREE.MeshStandardMaterial({
         map: canvasTexture(512, 128, (g) => {
           g.fillStyle = '#1f6f43';
           g.fillRect(0, 0, 512, 128);
@@ -165,10 +172,14 @@ export class Trucks extends GameMap {
           g.fillText('CENTRO  ⬆  SAÍDA 12', 256, 66);
         }),
         roughness: 0.6,
-      }),
-    );
-    green.position.y = 2.2;
-    this.sign.add(green);
+      });
+    // uma chapa por faixa: a cada passada, uma (ou as duas) aparecem
+    for (const z of [-2.35, 2.35]) {
+      const green = new THREE.Mesh(greenGeo, greenMat);
+      green.position.set(0, 2.2, z);
+      this.sign.add(green);
+      this.boards.push(green);
+    }
     const truss = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 17), pole);
     truss.position.y = 3.3;
     this.sign.add(truss);
@@ -194,9 +205,25 @@ export class Trucks extends GameMap {
     const paint = this.material(color, { roughness: 0.45, metalness: 0.2 });
     const dark = this.material(0x22252b, { roughness: 0.8 });
     // baú com nervuras
-    const box = new THREE.Mesh(new THREE.BoxGeometry(HALF_L * 2, 2.8, HALF_W * 2), new THREE.MeshStandardMaterial({ map: grimeTexture('#e9e4da', [4, 1], { tiles: 10, dark: 'rgba(0,0,0,0.12)' }), roughness: 0.7 }));
-    box.position.y = -1.4;
-    g.add(box);
+    // baú oco: teto, chão, paredes e frente (a traseira é aberta)
+    const skin = new THREE.MeshStandardMaterial({ map: grimeTexture('#e9e4da', [4, 1], { tiles: 10, dark: 'rgba(0,0,0,0.12)' }), roughness: 0.7, side: THREE.DoubleSide });
+    const inside = this.material(0x6b5a48, { roughness: 1 });
+    const panel = (sx: number, sy: number, sz: number, x: number, y: number, z: number, m: THREE.Material) => {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), m);
+      b.position.set(x, y, z);
+      g.add(b);
+    };
+    panel(HALF_L * 2, 0.16, HALF_W * 2, 0, -0.08, 0, skin);
+    panel(HALF_L * 2, 0.16, HALF_W * 2, 0, -2.72, 0, inside);
+    for (const z of [-1, 1]) panel(HALF_L * 2, 2.8, 0.16, 0, -1.4, z * (HALF_W - 0.08), skin);
+    panel(0.16, 2.8, HALF_W * 2, HALF_L - 0.08, -1.4, 0, skin);
+    // portas traseiras abertas (presas nas laterais)
+    for (const z of [-1, 1]) {
+      const door = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.6, HALF_W * 0.95), skin);
+      door.position.set(-HALF_L - HALF_W * 0.47, -1.4, z * (HALF_W + 0.05));
+      door.rotation.y = z * Math.PI / 2;
+      g.add(door);
+    }
     const stripe = new THREE.Mesh(new THREE.BoxGeometry(HALF_L * 2 + 0.02, 0.5, HALF_W * 2 + 0.02), paint);
     stripe.position.y = -1.6;
     g.add(stripe);
@@ -242,8 +269,9 @@ export class Trucks extends GameMap {
     const half = 2.3 + Math.sin(t * 0.5) * 0.65 + Math.sin(t * 1.3) * 0.08;
     for (const tr of this.trucks) {
       tr.z = tr.side * half;
+      tr.x = tr.side * 2.4 * Math.sin(t * 0.31);
       const sway = Math.sin(t * 2.1 + tr.side) * 0.02;
-      tr.body.setNextKinematicTranslation({ x: 0, y: Math.abs(Math.sin(t * 3 + tr.side)) * 0.03, z: tr.z });
+      tr.body.setNextKinematicTranslation({ x: tr.x, y: Math.abs(Math.sin(t * 3 + tr.side)) * 0.03, z: tr.z });
       tr.body.setNextKinematicRotation(new THREE.Quaternion().setFromEuler(new THREE.Euler(sway, 0, 0)));
     }
 
@@ -259,7 +287,12 @@ export class Trucks extends GameMap {
     this.signTimer -= dt;
     if (this.signTimer < 2 && !this.signWarned && this.signX > 900) {
       this.signWarned = true;
-      arena.announce('🪧 PLACA chegando! Abaixe-se ou pendure-se na lateral!', 'tip');
+      // sorteia que faixa(s) a placa tapa
+      const r = Math.random();
+      this.boards[0].visible = r < 0.4 || r >= 0.8;
+      this.boards[1].visible = r >= 0.4;
+      const free = !this.boards[0].visible ? 'o caminhão de TRÁS' : !this.boards[1].visible ? 'o caminhão da FRENTE' : 'dentro do baú';
+      arena.announce(`🪧 PLACA chegando! Lugar livre: ${free}!`, 'tip');
       arena.sound('horn', 0.8);
     }
     if (this.signTimer <= 0 && this.signX > 900) {
@@ -272,7 +305,8 @@ export class Trucks extends GameMap {
       for (const f of arena.fighters) {
         if (!f.alive || f.removed || this.signHit.has(f)) continue;
         const h = f.pos('head');
-        if (h.y > 1.1 && h.y < 3.3 && before >= h.x && this.signX < h.x) {
+        const board = this.boards[h.z > 0 ? 1 : 0].visible;
+        if (board && h.y > 1.1 && h.y < 3.3 && before >= h.x && this.signX < h.x) {
           this.signHit.add(f);
           arena.hazardHit(f, 55, new THREE.Vector3(-1, 0.3, 0).normalize(), 7, 'PLAFT!');
         }

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GameMap, canvasTexture, hazardStripes, type ArenaApi, type DeathKind } from './MapBase';
+import { RAPIER } from '../physics/Physics';
 import { grimeTexture } from './City';
 import type { Fighter } from '../characters/Fighter';
 
@@ -17,6 +18,7 @@ const PLAT_L = 16; // meia largura (x)
 const TRACK_Z = PLAT_W + 2.1; // centro de cada trilho
 const PIT_Y = -1.4; // fundo do trilho
 const TRAIN_SPEED = 38;
+const MEZ_Y = 2.8; // altura do mezanino
 
 interface Run {
   side: number;
@@ -49,6 +51,9 @@ export class Subway extends GameMap {
   private trackLights: { side: number; mat: THREE.MeshBasicMaterial }[] = [];
   /** Quem o trem pegou (sai do jogo logo depois). */
   private runOver = new Map<Fighter, number>();
+  private escalator = { x0: 0, x1: 0, z: 0, angle: 0 };
+  private lift!: RAPIER.RigidBody;
+  private liftT = 0;
 
   build() {
     this.lights({
@@ -75,9 +80,31 @@ export class Subway extends GameMap {
     for (const x of [-12, -6, 0, 6, 12]) this.box({ x, y: 2.5, z: 0 }, { x: 0.6, y: 5, z: 0.6 }, col);
     // bancos e lixeiras (obstáculos para subir)
     for (const x of [-9, -3, 3, 9]) this.box({ x, y: 0.25, z: x % 2 ? 1.2 : -1.2 }, { x: 2, y: 0.5, z: 0.6 }, this.material(0x8a5a3a));
-    // escada no meio (sobe para um mezanino)
-    for (let i = 0; i < 6; i++) this.box({ x: -1.5 + i * 0.5, y: 0.2 + i * 0.4, z: -2.4 }, { x: 0.5, y: 0.4, z: 1.6 }, tile);
-    this.box({ x: 3.5, y: 2.4, z: -2.4 }, { x: 4.5, y: 0.25, z: 1.6 }, tile);
+    // lado direito: escada rolante e elevador até um mezanino mais alto
+    const metal = this.material(0x8d939b, { metalness: 0.7, roughness: 0.4 });
+    const ESC_X0 = 5.5;
+    const ESC_X1 = 10.5;
+    const angle = Math.atan2(MEZ_Y, ESC_X1 - ESC_X0);
+    const len = Math.hypot(MEZ_Y, ESC_X1 - ESC_X0);
+    this.box(
+      { x: (ESC_X0 + ESC_X1) / 2, y: MEZ_Y / 2 - 0.1, z: -2.5 },
+      { x: len, y: 0.2, z: 1.3 },
+      new THREE.MeshStandardMaterial({ map: grimeTexture('#3a3d42', [8, 1], { tiles: 16 }), roughness: 0.5, metalness: 0.6 }),
+      { rot: new THREE.Euler(0, 0, angle), friction: 1 },
+    );
+    for (const z of [-3.2, -1.8]) this.box({ x: (ESC_X0 + ESC_X1) / 2, y: MEZ_Y / 2 + 0.55, z }, { x: len, y: 0.9, z: 0.12 }, metal, { rot: new THREE.Euler(0, 0, angle) });
+    this.escalator = { x0: ESC_X0, x1: ESC_X1, z: -2.5, angle };
+    // mezanino (plataforma alta)
+    this.box({ x: (ESC_X1 + PLAT_L) / 2, y: MEZ_Y - 0.15, z: -1.5 }, { x: PLAT_L - ESC_X1, y: 0.3, z: 4.2 }, tile);
+    this.box({ x: (ESC_X1 + PLAT_L) / 2, y: MEZ_Y + 0.5, z: 0.6 }, { x: PLAT_L - ESC_X1, y: 0.08, z: 0.08 }, metal);
+    // elevador (sobe e desce sozinho)
+    const lift = new THREE.Group();
+    const floorL = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.2, 1.8), metal);
+    lift.add(floorL);
+    const cage = new THREE.Mesh(new THREE.BoxGeometry(1.8, 2.2, 1.8), new THREE.MeshStandardMaterial({ color: 0x9fb4c8, transparent: true, opacity: 0.25 }));
+    cage.position.y = 1.1;
+    lift.add(cage);
+    this.lift = this.kinematic(new THREE.Vector3(14.5, -0.1, 2), RAPIER.ColliderDesc.cuboid(0.9, 0.1, 0.9), lift);
     // placa da estação
     const sign = new THREE.Mesh(
       new THREE.PlaneGeometry(4, 0.8),
@@ -127,8 +154,16 @@ export class Subway extends GameMap {
     for (const s of [-1, 1]) this.box({ x: 0, y: -0.7, z: s * (PLAT_W + 0.02) }, { x: PLAT_L * 2, y: 1.4, z: 0.04 }, stripes, { collide: false, shadow: false });
 
     this.prop('caixa', new THREE.Vector3(-6, 0.5, 2));
-    this.prop('barril', new THREE.Vector3(7, 0.5, -2), 0x2b5e8a);
-    this.prop('caixa', new THREE.Vector3(11, 0.5, 1.8), 0x9c6b3a);
+    this.prop('barril', new THREE.Vector3(-12, 0.5, -2), 0x2b5e8a);
+    // cones de trânsito em volta da escada rolante (dá para pegar e jogar)
+    for (const [x, z] of [
+      [4.8, -1.5],
+      [4.8, -3.4],
+      [7, -0.6],
+      [12, 1.4],
+      [-3, 2.6],
+    ])
+      this.prop('cone', new THREE.Vector3(x, 0.45, z));
 
     this.spawns = [new THREE.Vector3(-8, 0.05, 1.5), new THREE.Vector3(8, 0.05, 1.5), new THREE.Vector3(-4, 0.05, -1.5), new THREE.Vector3(4, 0.05, 1.5)];
   }
@@ -164,6 +199,24 @@ export class Subway extends GameMap {
   }
 
   update(dt: number, time: number, arena: ArenaApi) {
+    // escada rolante: quem está nela é levado para cima
+    const e = this.escalator;
+    for (const f of arena.fighters) {
+      if (!f.alive || f.removed || !f.grounded) continue;
+      const p = f.pos('pelvis');
+      if (p.x > e.x0 - 0.3 && p.x < e.x1 + 0.2 && Math.abs(p.z - e.z) < 0.8 && p.y > 0.2 && p.y < MEZ_Y + 1.2) {
+        for (const b of [f.part('pelvis'), f.part('chest')]) {
+          const v = b.linvel();
+          b.setLinvel({ x: v.x + (1.6 - v.x) * Math.min(1, dt * 6), y: v.y, z: v.z }, true);
+        }
+      }
+    }
+    // elevador: espera embaixo, sobe, espera em cima, desce
+    this.liftT += dt;
+    const cycle = this.liftT % 12;
+    const k = cycle < 3 ? 0 : cycle < 6 ? (cycle - 3) / 3 : cycle < 9 ? 1 : 1 - (cycle - 9) / 3;
+    this.lift.setNextKinematicTranslation({ x: 14.5, y: -0.1 + k * MEZ_Y, z: 2 });
+
     if (!this.run) {
       this.timer -= dt;
       if (this.timer < 2.2 && !this.warnSide) {
