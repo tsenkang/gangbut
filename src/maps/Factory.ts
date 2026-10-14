@@ -26,11 +26,11 @@ export class Factory extends GameMap {
   killY = -7;
   camera = {
     dir: new THREE.Vector3(0, 0.78, 1),
-    minDist: 11,
-    maxDist: 22,
+    minDist: 13,
+    maxDist: 27,
     fov: 42,
     center: new THREE.Vector3(0, 0.6, 0.3),
-    bounds: new THREE.Box3(new THREE.Vector3(-7, 0, -3), new THREE.Vector3(7, 3, 4)),
+    bounds: new THREE.Box3(new THREE.Vector3(-9.5, 0, -3.5), new THREE.Vector3(8, 3, 6)),
   };
 
   private belt!: RAPIER.Collider;
@@ -58,7 +58,7 @@ export class Factory extends GameMap {
       hemiSky: 0xb3bccc,
       hemiGround: 0x5a4130,
       hemiIntensity: 1.45,
-      shadowExtent: 14,
+      shadowExtent: 18,
     });
     const floorTex = canvasTexture(
       128,
@@ -92,8 +92,8 @@ export class Factory extends GameMap {
       this.ctx.root.add(l);
     }
     // Pisos dos dois lados da esteira (de -8 até 6 em x)
-    this.box({ x: -1, y: -0.75, z: 3.5 }, { x: 14, y: 1.5, z: 4.2 }, floor);
-    this.box({ x: -1, y: -0.75, z: -3.6 }, { x: 14, y: 1.5, z: 4.4 }, floor);
+    this.box({ x: -1, y: -0.75, z: 4.4 }, { x: 20, y: 1.5, z: 6 }, floor);
+    this.box({ x: -1, y: -0.75, z: -3.6 }, { x: 20, y: 1.5, z: 4.4 }, floor);
     // Esteira (um pouco acima do chão)
     this.beltTex = canvasTexture(
       128,
@@ -166,9 +166,9 @@ export class Factory extends GameMap {
     this.box({ x: -5.5, y: 1.25, z: -4.6 }, { x: 1.6, y: 0.7, z: 1.2 }, 0xa0522d);
     // Corrimão do fundo (dá para se pendurar na beira do buraco)
     const rail = this.material(0xffcc00, { metalness: 0.5 });
-    this.box({ x: 6, y: 1.1, z: -5.6 }, { x: 0.12, y: 2.2, z: 0.12 }, rail);
-    this.box({ x: 5.95, y: 0.6, z: 3.5 }, { x: 0.1, y: 0.1, z: 4 }, rail);
-    for (const z of [1.7, 5.3]) this.box({ x: 5.95, y: 0.3, z }, { x: 0.1, y: 0.6, z: 0.1 }, rail);
+    this.box({ x: 9, y: 1.1, z: -5.6 }, { x: 0.12, y: 2.2, z: 0.12 }, rail);
+    this.box({ x: 8.95, y: 0.6, z: 4.4 }, { x: 0.1, y: 0.1, z: 5.8 }, rail);
+    for (const z of [1.7, 4.4, 7.1]) this.box({ x: 8.95, y: 0.3, z }, { x: 0.1, y: 0.6, z: 0.1 }, rail);
     // Buraco escuro embaixo (cenário)
     const pit = new THREE.Mesh(new THREE.PlaneGeometry(40, 30), new THREE.MeshBasicMaterial({ color: 0x0b0710 }));
     pit.rotation.x = -Math.PI / 2;
@@ -197,11 +197,15 @@ export class Factory extends GameMap {
     this.box({ x: PRESS_X, y: 7.5, z: -0.9 }, { x: 0.6, y: 0.4, z: 2 }, frame, { collide: false });
 
     // Caixas iniciais
-    this.prop('caixa', new THREE.Vector3(-2, 0.5, 3.2));
+    this.prop('caixa', new THREE.Vector3(-2, 0.5, 4));
     this.prop('barril', new THREE.Vector3(3, 0.5, -3.8), 0xd94a3a);
     this.prop('caixa', new THREE.Vector3(-1, 0.5, -3.2), 0x8fbf5a);
+    this.prop('caixa', new THREE.Vector3(6.5, 0.5, 5.5));
+    this.prop('barril', new THREE.Vector3(-8, 0.5, 5), 0x2b7bb9);
+    // pilha de pallets no canto da frente (dá para subir)
+    this.box({ x: -7.5, y: 0.5, z: 6.4 }, { x: 2.2, y: 1, z: 1.6 }, 0xa0522d);
 
-    this.spawns = [new THREE.Vector3(-4, 0.08, 3.2), new THREE.Vector3(1.5, 0.08, 3.6), new THREE.Vector3(-4, 0.08, -3.2), new THREE.Vector3(1.5, 0.08, -3.4)];
+    this.spawns = [new THREE.Vector3(-5, 0.08, 4), new THREE.Vector3(2.5, 0.08, 4.5), new THREE.Vector3(-4, 0.08, -3.2), new THREE.Vector3(2.5, 0.08, -3.4)];
   }
 
   update(dt: number, time: number, arena: ArenaApi) {
@@ -290,7 +294,7 @@ export class Factory extends GameMap {
       return new THREE.Vector3(p.x, 0, p.z >= 0 ? 3.4 : -3.4);
     }
     // Em cima da esteira perto do buraco: sai dela
-    if (Math.abs(p.z) < BELT_Z + 0.2 && p.x > 2) return new THREE.Vector3(p.x - 1.5, 0, p.z >= 0 ? 3.2 : -3.2);
+    if (Math.abs(p.z) < BELT_Z + 0.2 && p.x > 2) return new THREE.Vector3(p.x - 1.5, 0, p.z >= 0 ? 4 : -3.2);
     return null;
   }
 

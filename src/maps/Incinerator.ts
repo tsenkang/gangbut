@@ -14,7 +14,7 @@ import { RAPIER } from '../physics/Physics';
 const PLANKS = 14;
 const BRIDGE_X0 = -7;
 const PLANK_W = 1;
-const HALF_D = 1.5;
+const HALF_D = 2.3; // passarela larga
 const LAVA_Y = -6;
 
 interface Plank {
@@ -35,11 +35,11 @@ export class Incinerator extends GameMap {
   killY = -10;
   camera = {
     dir: new THREE.Vector3(0, 0.62, 1),
-    minDist: 11,
-    maxDist: 24,
+    minDist: 13,
+    maxDist: 28,
     fov: 42,
     center: new THREE.Vector3(0, 0.4, 0),
-    bounds: new THREE.Box3(new THREE.Vector3(-9, -1, -1), new THREE.Vector3(9, 3, 1)),
+    bounds: new THREE.Box3(new THREE.Vector3(-11, -1, -1.8), new THREE.Vector3(11, 3, 1.8)),
   };
 
   private planks: Plank[] = [];
@@ -62,7 +62,7 @@ export class Incinerator extends GameMap {
       hemiSky: 0x6b6f86,
       hemiGround: 0xff6a2a,
       hemiIntensity: 1.5,
-      shadowExtent: 14,
+      shadowExtent: 19,
     });
     // Luz quente vinda de baixo (da fornalha)
     const glow = new THREE.PointLight(0xff6a1a, 70, 30, 1.5);
@@ -99,8 +99,8 @@ export class Incinerator extends GameMap {
     const stripes = new THREE.MeshStandardMaterial({ map: hazardStripes([3, 1]) });
     const steel = this.material(0x58606b, { roughness: 0.55, metalness: 0.6 });
     for (const s of [-1, 1]) {
-      const x = s * 11;
-      this.box({ x, y: -5, z: 0 }, { x: 8, y: 10, z: 11 }, concrete);
+      const x = s * 12.5;
+      this.box({ x, y: -5, z: 0 }, { x: 11, y: 10, z: 11 }, concrete);
       this.box({ x: s * 7.1, y: 0.01, z: 0 }, { x: 0.15, y: 0.03, z: 7 }, stripes, { collide: false, shadow: false });
       // máquina / contêiner de lixo (dá para subir)
       this.box({ x: x + s * 1.5, y: 0.6, z: -2.4 }, { x: 2.5, y: 1.2, z: 1.6 }, this.material(0x2f6f4e, { roughness: 0.7, metalness: 0.3 }));
@@ -192,8 +192,10 @@ export class Incinerator extends GameMap {
 
     this.prop('barril', new THREE.Vector3(-10, 0.5, -0.5), 0xd94a3a);
     this.prop('caixa', new THREE.Vector3(10, 0.5, 0.6));
+    this.prop('caixa', new THREE.Vector3(-9, 0.5, 3));
+    this.prop('barril', new THREE.Vector3(9.5, 0.5, -3), 0x2b5e8a);
 
-    this.spawns = [new THREE.Vector3(-4.5, 0.08, -0.4), new THREE.Vector3(4.5, 0.08, 0.4), new THREE.Vector3(-9.2, 0.08, 0.6), new THREE.Vector3(9.2, 0.08, -0.6)];
+    this.spawns = [new THREE.Vector3(-4.5, 0.08, -0.8), new THREE.Vector3(4.5, 0.08, 0.8), new THREE.Vector3(-10, 0.08, 1.5), new THREE.Vector3(10, 0.08, -1.5)];
   }
 
   update(dt: number, time: number, arena: ArenaApi) {

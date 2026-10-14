@@ -34,11 +34,11 @@ export class FerrisWheel extends GameMap {
   killY = -10;
   camera = {
     dir: new THREE.Vector3(0, 0.4, 1),
-    minDist: 15,
-    maxDist: 30,
+    minDist: 16,
+    maxDist: 33,
     fov: 44,
     center: new THREE.Vector3(0, 3, 0),
-    bounds: new THREE.Box3(new THREE.Vector3(-8, 0.5, -1), new THREE.Vector3(8, 12, 1)),
+    bounds: new THREE.Box3(new THREE.Vector3(-10, 0.5, -1.5), new THREE.Vector3(10, 12, 1.5)),
   };
 
   private gondolas: Gondola[] = [];
@@ -62,7 +62,7 @@ export class FerrisWheel extends GameMap {
       hemiSky: 0xc9d4ea,
       hemiGround: 0x5a4a48,
       hemiIntensity: 1.25,
-      shadowExtent: 15,
+      shadowExtent: 18,
     });
 
     // ---------------- plataformas de embarque (dos dois lados)
@@ -70,22 +70,22 @@ export class FerrisWheel extends GameMap {
     const rail = this.material(0xd9d2c3, { roughness: 0.5, metalness: 0.3 });
     const stripes = new THREE.MeshStandardMaterial({ map: hazardStripes([3, 1]) });
     for (const s of [-1, 1]) {
-      const x = s * 6.9;
-      this.box({ x, y: -0.4, z: 0 }, { x: 7, y: 0.8, z: 4.4 }, deck);
+      const x = s * 8.45;
+      this.box({ x, y: -0.4, z: 0 }, { x: 10, y: 0.8, z: 6.4 }, deck);
       // borda pintada (perto da roda)
-      this.box({ x: s * 3.45, y: 0.01, z: 0 }, { x: 0.12, y: 0.03, z: 4.4 }, stripes, { collide: false, shadow: false });
+      this.box({ x: s * 3.45, y: 0.01, z: 0 }, { x: 0.12, y: 0.03, z: 6.4 }, stripes, { collide: false, shadow: false });
       // corrimão no fundo (dá para agarrar)
-      this.box({ x, y: 1.0, z: -2.1 }, { x: 7, y: 0.09, z: 0.09 }, rail);
-      for (let k = 0; k < 5; k++) this.box({ x: x - 3.2 + k * 1.6, y: 0.5, z: -2.1 }, { x: 0.08, y: 1, z: 0.08 }, rail, { collide: false });
+      this.box({ x, y: 1.0, z: -3.1 }, { x: 10, y: 0.09, z: 0.09 }, rail);
+      for (let k = 0; k < 7; k++) this.box({ x: x - 4.8 + k * 1.6, y: 0.5, z: -3.1 }, { x: 0.08, y: 1, z: 0.08 }, rail, { collide: false });
       // pilar que segura a plataforma, descendo para a neblina
-      const pillar = new THREE.Mesh(new THREE.BoxGeometry(2.4, 60, 2.4), this.material(0x4a4a52));
+      const pillar = new THREE.Mesh(new THREE.BoxGeometry(3.2, 60, 3.2), this.material(0x4a4a52));
       pillar.position.set(x, -30.8, 0);
       this.deco(pillar);
     }
     // Bilheteria (dá para subir no telhado)
     const booth = this.material(0xe76f51, { roughness: 0.7 });
-    this.box({ x: -9.2, y: 0.9, z: -1.2 }, { x: 1.8, y: 1.8, z: 1.6 }, booth);
-    this.box({ x: -9.2, y: 1.9, z: -1.2 }, { x: 2.2, y: 0.2, z: 2 }, this.material(0xf4e9d8));
+    this.box({ x: -11, y: 0.9, z: -1.8 }, { x: 1.8, y: 1.8, z: 1.6 }, booth);
+    this.box({ x: -11, y: 1.9, z: -1.8 }, { x: 2.2, y: 0.2, z: 2 }, this.material(0xf4e9d8));
     const ticket = new THREE.Mesh(
       new THREE.PlaneGeometry(1.4, 0.5),
       new THREE.MeshBasicMaterial({
@@ -107,7 +107,7 @@ export class FerrisWheel extends GameMap {
         })(),
       }),
     );
-    ticket.position.set(-9.2, 1.45, -0.39);
+    ticket.position.set(-11, 1.45, -0.99);
     this.deco(ticket, false);
 
     // ---------------- a roda (só desenho; gira inteira)
@@ -179,11 +179,14 @@ export class FerrisWheel extends GameMap {
       [-16, 0.7],
     ]);
 
-    this.prop('caixa', new THREE.Vector3(-5.2, 0.5, 1));
-    this.prop('barril', new THREE.Vector3(7.5, 0.5, -1), 0x2a9d8f);
-    this.prop('bola', new THREE.Vector3(5, 0.6, 1), 0xffb703);
+    this.prop('caixa', new THREE.Vector3(-5.5, 0.5, 1.5));
+    this.prop('barril', new THREE.Vector3(9.5, 0.5, -1.5), 0x2a9d8f);
+    this.prop('bola', new THREE.Vector3(6, 0.6, 1.8), 0xffb703);
+    this.prop('caixa', new THREE.Vector3(11, 0.5, 2), 0xe76f51);
+    // carrinho de pipoca na plataforma da direita (dá para subir)
+    this.box({ x: 11.2, y: 0.6, z: -2 }, { x: 1.4, y: 1.2, z: 1 }, this.material(0xd62828, { roughness: 0.6 }));
 
-    this.spawns = [new THREE.Vector3(-5.6, 0.05, 0.3), new THREE.Vector3(5.6, 0.05, 0.3), new THREE.Vector3(0, 0.08, 0), new THREE.Vector3(-8, 0.05, 1.2)];
+    this.spawns = [new THREE.Vector3(-6, 0.05, 0.3), new THREE.Vector3(6, 0.05, 0.3), new THREE.Vector3(0, 0.08, 0), new THREE.Vector3(-9, 0.05, 1.6)];
   }
 
   /** Piso da cabine para um ângulo da roda. */
@@ -252,7 +255,7 @@ export class FerrisWheel extends GameMap {
       const t = g.body.translation();
       if (Math.abs(p.x - t.x) < GW + 0.2 && p.y > t.y - 0.5 && p.y < t.y + 2.6) return new THREE.Vector3(t.x, t.y, 0);
     }
-    return new THREE.Vector3(Math.sign(p.x || 1) * 6.4, 0, 0);
+    return new THREE.Vector3(Math.sign(p.x || 1) * 7.5, 0, 0);
   }
 
   update(dt: number, time: number, arena: ArenaApi) {

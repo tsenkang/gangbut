@@ -12,11 +12,11 @@ import { grimeTexture, hazeBelow } from './City';
 // ------------------------------------------------------------
 
 const ROPE_Y = 3.2; // altura do cabo
-const LINES = [-1.75, 1.75]; // z de cada cabo
+const LINES = [-2, 2]; // z de cada cabo
 const STATION_X = 10.5; // onde começa cada estação
-const TRAVEL = 7.6; // até onde a cabine vai (x)
-const CW = 1.6; // meia largura da cabine (x)
-const CD = 1.15; // meia profundidade (z)
+const TRAVEL = 7.2; // até onde a cabine vai (x)
+const CW = 2.2; // meia largura da cabine (x)
+const CD = 1.4; // meia profundidade (z)
 
 interface Cabin {
   body: RAPIER.RigidBody;
@@ -37,11 +37,11 @@ export class CableCars extends GameMap {
   killY = -12;
   camera = {
     dir: new THREE.Vector3(0, 0.55, 1),
-    minDist: 14,
-    maxDist: 28,
+    minDist: 15,
+    maxDist: 32,
     fov: 44,
     center: new THREE.Vector3(0, 0.6, 0),
-    bounds: new THREE.Box3(new THREE.Vector3(-10, -1, -1.5), new THREE.Vector3(10, 3, 1.5)),
+    bounds: new THREE.Box3(new THREE.Vector3(-12, -1, -2), new THREE.Vector3(12, 3, 2)),
   };
 
   private cabins: Cabin[] = [];
@@ -59,7 +59,7 @@ export class CableCars extends GameMap {
       hemiSky: 0xe0ecff,
       hemiGround: 0x8090a8,
       hemiIntensity: 1.35,
-      shadowExtent: 16,
+      shadowExtent: 20,
     });
 
     // ---------------- estações (uma de cada lado, no topo de um pico)
@@ -70,14 +70,16 @@ export class CableCars extends GameMap {
     const rock = this.material(0x6c7480, { roughness: 1 });
     const stripes = new THREE.MeshStandardMaterial({ map: hazardStripes([3, 1]) });
     for (const s of [-1, 1]) {
-      const x = s * (STATION_X + 2.7);
-      this.box({ x, y: -0.4, z: 0 }, { x: 5.4, y: 0.8, z: 6 }, deck);
-      this.box({ x: s * (STATION_X + 0.06), y: 0.01, z: 0 }, { x: 0.12, y: 0.03, z: 6 }, stripes, { collide: false, shadow: false });
+      const x = s * (STATION_X + 4);
+      this.box({ x, y: -0.4, z: 0 }, { x: 8, y: 0.8, z: 8 }, deck);
+      this.box({ x: s * (STATION_X + 0.06), y: 0.01, z: 0 }, { x: 0.12, y: 0.03, z: 8 }, stripes, { collide: false, shadow: false });
       // parede do fundo e telhado (o telhado dá para subir)
-      this.box({ x, y: 2.1, z: -2.8 }, { x: 5.4, y: 4.2, z: 0.4 }, wood);
-      this.box({ x, y: 4.35, z: -0.6 }, { x: 5.8, y: 0.3, z: 5 }, roofMat);
-      this.box({ x, y: 4.52, z: -0.6 }, { x: 5.6, y: 0.06, z: 4.8 }, snow, { collide: false });
-      this.box({ x: s * (STATION_X + 5), y: 2.1, z: 1.8 }, { x: 0.3, y: 4.2, z: 0.3 }, wood);
+      this.box({ x, y: 2.1, z: -3.8 }, { x: 8, y: 4.2, z: 0.4 }, wood);
+      this.box({ x, y: 4.35, z: -1.2 }, { x: 8.4, y: 0.3, z: 5.6 }, roofMat);
+      this.box({ x, y: 4.52, z: -1.2 }, { x: 8.2, y: 0.06, z: 5.4 }, snow, { collide: false });
+      this.box({ x: s * (STATION_X + 7.6), y: 2.1, z: 1.4 }, { x: 0.3, y: 4.2, z: 0.3 }, wood);
+      // banco de espera (dá para subir)
+      this.box({ x: s * (STATION_X + 5.5), y: 0.4, z: -2.8 }, { x: 2.4, y: 0.8, z: 0.8 }, wood);
       // polia grande (onde o cabo dá a volta)
       const wheel = new THREE.Mesh(new THREE.CylinderGeometry(1.75, 1.75, 0.25, 28), this.material(0x333a44, { metalness: 0.6 }));
       wheel.position.set(s * (STATION_X + 1.6), ROPE_Y, 0);
@@ -91,7 +93,7 @@ export class CableCars extends GameMap {
       cap.position.set(s * (STATION_X + 4), -3.4, -1);
       this.deco(cap, false);
     }
-    this.box({ x: -STATION_X - 3, y: 0.5, z: 1.6 }, { x: 1, y: 1, z: 1 }, this.material(0x2f6f4e));
+    this.box({ x: -STATION_X - 3, y: 0.5, z: 2.6 }, { x: 1, y: 1, z: 1 }, this.material(0x2f6f4e));
 
     // ---------------- cabos (só desenho)
     const cableMat = this.material(0x1a1a1a, { metalness: 0.5 });
@@ -143,6 +145,8 @@ export class CableCars extends GameMap {
 
     this.prop('caixa', new THREE.Vector3(-STATION_X - 1.5, 0.5, -1.5));
     this.prop('barril', new THREE.Vector3(STATION_X + 2, 0.5, 1.2), 0x2b5e8a);
+    this.prop('caixa', new THREE.Vector3(STATION_X + 5, 0.5, 2.5));
+    this.prop('barril', new THREE.Vector3(-STATION_X - 6, 0.5, 1), 0xd95f2b);
 
     // dois começam em cada estação; a cabine de cada cabo começa encostada
     this.spawns = [
@@ -193,7 +197,7 @@ export class CableCars extends GameMap {
       const t = c.body.translation();
       if (Math.abs(p.x - t.x) < CW + 0.3 && Math.abs(p.z - t.z) < CD + 0.3 && p.y > t.y - 0.5) return new THREE.Vector3(t.x, 0, t.z);
     }
-    return new THREE.Vector3(Math.sign(p.x || 1) * (STATION_X + 2.4), 0, 0.5);
+    return new THREE.Vector3(Math.sign(p.x || 1) * (STATION_X + 3.5), 0, 0.5);
   }
 
   update(dt: number, time: number, arena: ArenaApi) {

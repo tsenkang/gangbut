@@ -13,7 +13,7 @@ import { cityBackdrop, grimeTexture, hazeBelow, iBeamGeometry } from './City';
 
 const CARS = [-3.3, 0, 3.3]; // x de cada elevador
 const CW = 1.45; // meia largura (x)
-const CD = 1.6; // meia profundidade (z)
+const CD = 2.1; // meia profundidade (z)
 const LOW = -2.2;
 const HIGH = 5.4;
 const BEAM_Y = 7.4; // viga lá de cima (bate em quem passa em pé)
@@ -37,11 +37,11 @@ export class Elevators extends GameMap {
   botLeaps = false; // o elevador some debaixo de quem pula
   camera = {
     dir: new THREE.Vector3(0, 0.45, 1),
-    minDist: 14,
-    maxDist: 27,
+    minDist: 15,
+    maxDist: 31,
     fov: 44,
     center: new THREE.Vector3(0, 1.5, 0),
-    bounds: new THREE.Box3(new THREE.Vector3(-7, -1, -1), new THREE.Vector3(7, 6, 1)),
+    bounds: new THREE.Box3(new THREE.Vector3(-10, -1, -1.5), new THREE.Vector3(10, 6, 1.5)),
   };
 
   private cars: Car[] = [];
@@ -62,29 +62,31 @@ export class Elevators extends GameMap {
       hemiSky: 0xcfd8ea,
       hemiGround: 0x4f4642,
       hemiIntensity: 1.25,
-      shadowExtent: 15,
+      shadowExtent: 19,
     });
 
     // ---------------- andares firmes dos dois lados
     const floor = new THREE.MeshStandardMaterial({ map: grimeTexture('#7a756e', [2, 2], { tiles: 4, cracks: true }), roughness: 1 });
     const stripes = new THREE.MeshStandardMaterial({ map: hazardStripes([3, 1]) });
     for (const s of [-1, 1]) {
-      const x = s * 8.1;
-      this.box({ x, y: -0.4, z: 0 }, { x: 6, y: 0.8, z: 4.4 }, floor);
-      this.box({ x: s * 5.12, y: 0.01, z: 0 }, { x: 0.12, y: 0.03, z: 4.4 }, stripes, { collide: false, shadow: false });
+      const x = s * 9.6;
+      this.box({ x, y: -0.4, z: 0 }, { x: 9, y: 0.8, z: 6 }, floor);
+      this.box({ x: s * 5.12, y: 0.01, z: 0 }, { x: 0.12, y: 0.03, z: 6 }, stripes, { collide: false, shadow: false });
       // parede do prédio no fundo, com janela
-      this.box({ x, y: 2, z: -2.4 }, { x: 6, y: 4, z: 0.4 }, this.material(0x8a6f5c, { roughness: 1 }));
+      this.box({ x, y: 2, z: -3.2 }, { x: 9, y: 4, z: 0.4 }, this.material(0x8a6f5c, { roughness: 1 }));
       // andar de cima (alto, dá para chegar pelo elevador)
-      this.box({ x: s * 8.6, y: HIGH - 0.25, z: -0.6 }, { x: 5, y: 0.5, z: 3.2 }, floor);
+      this.box({ x: s * 10.1, y: HIGH - 0.25, z: -1 }, { x: 8, y: 0.5, z: 4 }, floor);
+      // pilha de caixotes no térreo (dá para subir)
+      this.box({ x: s * 12.5, y: 0.6, z: 1.8 }, { x: 1.6, y: 1.2, z: 1.6 }, this.material(0x9c6b3a, { roughness: 0.9 }));
       this.box({ x: s * 6.2, y: HIGH + 0.5, z: -2 }, { x: 0.1, y: 1, z: 0.1 }, this.material(0xd9d2c3), { collide: false });
     }
     // corrimão no andar de cima (para se pendurar)
-    for (const s of [-1, 1]) this.box({ x: s * 8.6, y: HIGH + 0.95, z: -2.1 }, { x: 5, y: 0.08, z: 0.08 }, this.material(0xd9d2c3));
+    for (const s of [-1, 1]) this.box({ x: s * 10.1, y: HIGH + 0.95, z: -2.9 }, { x: 8, y: 0.08, z: 0.08 }, this.material(0xd9d2c3));
 
     // ---------------- estrutura do poço (só desenho) e viga de cima
     const steel = new THREE.MeshStandardMaterial({ color: 0x3f6f9c, roughness: 0.6, metalness: 0.4 });
     for (const x of [-5, -1.65, 1.65, 5]) {
-      for (const z of [-1.9]) {
+      for (const z of [-2.45]) {
         const col = new THREE.Mesh(iBeamGeometry(40, 0.4, 0.4), steel);
         col.rotation.x = Math.PI / 2;
         col.position.set(x, -10, z);
@@ -99,7 +101,7 @@ export class Elevators extends GameMap {
     this.ctx.physics.addStaticBox({ x: 0, y: BEAM_Y, z: 0 }, { x: 5.5, y: 0.25, z: 0.25 });
     // motor e polias lá no alto
     const motor = new THREE.Mesh(new THREE.BoxGeometry(10.5, 1.2, 1.4), this.material(0x4a4f57, { metalness: 0.5 }));
-    motor.position.set(0, BEAM_Y + 3.2, -1.9);
+    motor.position.set(0, BEAM_Y + 3.2, -2.45);
     this.deco(motor);
 
     // ---------------- os três elevadores (cinemáticos)
@@ -170,11 +172,12 @@ export class Elevators extends GameMap {
       [-22, 0.65],
     ]);
 
-    this.prop('caixa', new THREE.Vector3(-7.5, 0.5, 1));
-    this.prop('barril', new THREE.Vector3(8, 0.5, 1.2), 0x2b5e8a);
-    this.prop('caixa', new THREE.Vector3(8.6, HIGH + 0.5, -0.6));
+    this.prop('caixa', new THREE.Vector3(-8, 0.5, 1.5));
+    this.prop('barril', new THREE.Vector3(9, 0.5, 1.5), 0x2b5e8a);
+    this.prop('caixa', new THREE.Vector3(10, HIGH + 0.5, -1));
+    this.prop('barril', new THREE.Vector3(-11, HIGH + 0.5, -1), 0xd95f2b);
 
-    this.spawns = [new THREE.Vector3(-7, 0.05, 0.5), new THREE.Vector3(7, 0.05, 0.5), new THREE.Vector3(-9, 0.05, -0.8), new THREE.Vector3(9, 0.05, -0.8)];
+    this.spawns = [new THREE.Vector3(-7.5, 0.05, 0.5), new THREE.Vector3(7.5, 0.05, 0.5), new THREE.Vector3(-10.5, 0.05, -1), new THREE.Vector3(10.5, 0.05, -1)];
   }
 
   /** Altura do elevador: para um pouquinho em cima e embaixo, anda no meio. */
@@ -189,8 +192,8 @@ export class Elevators extends GameMap {
     for (const c of this.cars) {
       if (Math.abs(p.x - c.x) < CW + 0.2 && p.y > c.y - 0.5 && p.y < c.y + 2.5) return new THREE.Vector3(c.x, c.y, 0);
     }
-    if (p.y > HIGH - 0.5 && Math.abs(p.x) > 6) return new THREE.Vector3(Math.sign(p.x) * 8.6, HIGH, -0.6);
-    return new THREE.Vector3(Math.sign(p.x || 1) * 8.1, 0, 0);
+    if (p.y > HIGH - 0.5 && Math.abs(p.x) > 6) return new THREE.Vector3(Math.sign(p.x) * 10.1, HIGH, -1);
+    return new THREE.Vector3(Math.sign(p.x || 1) * 9.6, 0, 0);
   }
 
   update(dt: number, time: number, arena: ArenaApi) {

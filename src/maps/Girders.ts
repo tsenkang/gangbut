@@ -13,7 +13,7 @@ import type { Fighter } from '../characters/Fighter';
 // ------------------------------------------------------------
 
 const RUST = 0xb5482b;
-const SWEEP = 15; // até onde a viga do guindaste vai em x
+const SWEEP = 19; // até onde a viga do guindaste vai em x
 
 interface Beam {
   x: number;
@@ -32,13 +32,14 @@ export class Girders extends GameMap {
   hazard = 'As vigas são estreitas, o guindaste varre tudo e a ventania empurra!';
   music = 'telhado' as const;
   killY = -9;
+  botLeaps = false; // vigas estreitas: pular de uma para outra é suicídio
   camera = {
     dir: new THREE.Vector3(0, 0.72, 1),
-    minDist: 12,
-    maxDist: 24,
+    minDist: 14,
+    maxDist: 29,
     fov: 42,
     center: new THREE.Vector3(0, 0.5, 0),
-    bounds: new THREE.Box3(new THREE.Vector3(-7, -1, -4), new THREE.Vector3(7, 3, 3)),
+    bounds: new THREE.Box3(new THREE.Vector3(-10, -1, -4), new THREE.Vector3(10, 3, 3)),
   };
 
   private hook!: RAPIER.RigidBody;
@@ -66,27 +67,30 @@ export class Girders extends GameMap {
       hemiSky: 0xcfd8e8,
       hemiGround: 0x4a3c30,
       hemiIntensity: 1.2,
-      shadowExtent: 16,
+      shadowExtent: 20,
     });
 
     const steel = new THREE.MeshStandardMaterial({ color: RUST, roughness: 0.7, metalness: 0.4 });
     const beams: Beam[] = [
-      { x: 0, z: 0, len: 19, along: 'x', w: 1.8 }, // viga principal
-      { x: 0, z: -4, len: 15, along: 'x', w: 1.4 }, // viga de trás
-      { x: -6, z: -1.5, len: 8, along: 'z', w: 1.4 },
-      { x: 0, z: -0.5, len: 8.5, along: 'z', w: 1.4 },
-      { x: 6, z: -1.5, len: 8, along: 'z', w: 1.4 },
-      { x: -2.5, z: 3, len: 6, along: 'x', y: -0.7, w: 1.3 }, // viga baixa da frente
+      { x: 0, z: 0, len: 27, along: 'x', w: 2.2 }, // viga principal
+      { x: 0, z: -4, len: 22, along: 'x', w: 1.8 }, // viga de trás
+      { x: -9, z: -1.5, len: 8, along: 'z', w: 1.6 },
+      { x: -3.5, z: -0.5, len: 8.5, along: 'z', w: 1.5 },
+      { x: 3.5, z: -0.5, len: 8.5, along: 'z', w: 1.5 },
+      { x: 9, z: -1.5, len: 8, along: 'z', w: 1.6 },
+      { x: -4, z: 3, len: 9, along: 'x', y: -0.7, w: 1.4 }, // viga baixa da frente
+      { x: 6, z: 3.2, len: 6, along: 'x', y: -0.7, w: 1.4 },
     ];
     for (const b of beams) this.beam(b, steel);
 
     // Colunas nas cruzes (dá para agarrar e escalar)
     const cols: [number, number][] = [
-      [-6, 0],
-      [6, 0],
-      [-6, -4],
-      [6, -4],
-      [0, -4],
+      [-9, 0],
+      [9, 0],
+      [-9, -4],
+      [9, -4],
+      [-3.5, -4],
+      [3.5, -4],
     ];
     for (const [x, z] of cols) {
       const m = new THREE.Mesh(iBeamGeometry(60, 0.5, 0.5), steel);
@@ -97,8 +101,8 @@ export class Girders extends GameMap {
     }
     // Colunas que sobem acima do piso (para pendurar e subir)
     for (const [x, z] of [
-      [-6, -4],
-      [6, -4],
+      [-9, -4],
+      [9, -4],
     ]) {
       const up = new THREE.Mesh(iBeamGeometry(3.4, 0.4, 0.4), steel);
       up.rotation.x = Math.PI / 2;
@@ -108,8 +112,9 @@ export class Girders extends GameMap {
     }
     // Plataforma alta de tábuas entre as colunas de trás (lugar disputado)
     const wood = new THREE.MeshStandardMaterial({ map: grimeTexture('#8a6a45', [1, 4], { tiles: 4 }), roughness: 1 });
-    this.box({ x: 4.2, y: 2.55, z: -4 }, { x: 3.6, y: 0.15, z: 1.6 }, wood);
-    this.beam({ x: 0, z: -4, len: 12.5, along: 'x', y: 3.4, w: 0.5 }, steel); // viga de cima (para se pendurar)
+    this.box({ x: 6, y: 2.55, z: -4 }, { x: 5.6, y: 0.15, z: 1.8 }, wood);
+    this.box({ x: -6.2, y: 2.55, z: -4 }, { x: 3.2, y: 0.15, z: 1.8 }, wood);
+    this.beam({ x: 0, z: -4, len: 18.5, along: 'x', y: 3.4, w: 0.5 }, steel); // viga de cima (para se pendurar)
 
     // Placas de aviso
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.7), new THREE.MeshStandardMaterial({ map: hazardStripes([2, 1]) }));
@@ -159,11 +164,12 @@ export class Girders extends GameMap {
       [-38, 0.5],
     ]);
 
-    this.prop('caixa', new THREE.Vector3(3.6, 3.2, -4));
+    this.prop('caixa', new THREE.Vector3(5.4, 3.2, -4));
     this.prop('caixa', new THREE.Vector3(-3, 0.5, 0));
-    this.prop('barril', new THREE.Vector3(5, 0.5, 0), 0x2b5e8a);
+    this.prop('barril', new THREE.Vector3(6, 0.5, 0), 0x2b5e8a);
+    this.prop('caixa', new THREE.Vector3(-8, 0.5, -4));
 
-    this.spawns = [new THREE.Vector3(-6, 0.08, 0), new THREE.Vector3(6, 0.08, 0), new THREE.Vector3(0, 0.08, 2), new THREE.Vector3(0, 0.08, -4)];
+    this.spawns = [new THREE.Vector3(-8, 0.08, 0), new THREE.Vector3(8, 0.08, 0), new THREE.Vector3(-1.5, 0.08, -4), new THREE.Vector3(1.5, 0.08, 0)];
   }
 
   /** Viga horizontal com o topo em y (padrão 0). */
@@ -183,7 +189,7 @@ export class Girders extends GameMap {
     const coming = this.hookWait < 2.5 || Math.abs(this.hookX) < SWEEP + 4;
     const ahead = (p.x - this.hookX) * this.hookDir;
     if (coming && ahead > -1.5 && Math.abs(p.z + 1.5) < 2.7 && p.y > -0.5) {
-      return new THREE.Vector3(THREE.MathUtils.clamp(p.x, -6.5, 6.5), 0, -4);
+      return new THREE.Vector3(THREE.MathUtils.clamp(p.x, -9.5, 9.5), 0, -4);
     }
     return null;
   }

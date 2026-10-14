@@ -39,9 +39,9 @@ function wheelTexture() {
 // desça no engate entre os vagões. Quem cai do trem fica para trás.
 // ------------------------------------------------------------
 
-const WAGON_LEN = 7;
+const WAGON_LEN = 9.5;
 const GAP = 1.4;
-const HALF_W = 1.5;
+const HALF_W = 1.75;
 const WAGONS = [-(WAGON_LEN + GAP), 0, WAGON_LEN + GAP];
 const SPEED = 24; // velocidade do cenário passando
 const FRONT = WAGONS[2] + WAGON_LEN / 2;
@@ -68,11 +68,11 @@ export class Train extends GameMap {
   killY = -8;
   camera = {
     dir: new THREE.Vector3(0.05, 0.62, 1),
-    minDist: 11,
-    maxDist: 23,
+    minDist: 13,
+    maxDist: 28,
     fov: 42,
     center: new THREE.Vector3(0, 0.6, 0),
-    bounds: new THREE.Box3(new THREE.Vector3(-9, 0, -1), new THREE.Vector3(9, 3, 1)),
+    bounds: new THREE.Box3(new THREE.Vector3(-12, 0, -1.2), new THREE.Vector3(12, 3, 1.2)),
   };
 
   private groundTex!: THREE.Texture;
@@ -104,7 +104,7 @@ export class Train extends GameMap {
       hemiSky: 0xb7b2c8,
       hemiGround: 0x4a4030,
       hemiIntensity: 1.15,
-      shadowExtent: 16,
+      shadowExtent: 20,
     });
 
     // ---------------- chão e via férrea ----------------
@@ -236,7 +236,7 @@ export class Train extends GameMap {
         stripe.position.set(x, -1.75, z);
         if (z < 0) stripe.rotation.y = Math.PI;
         this.deco(stripe, false);
-        for (let k = -2; k <= 2; k++) {
+        for (let k = -3; k <= 3; k++) {
           const w = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.75), new THREE.MeshStandardMaterial({ color: 0x9cb8c8, emissive: 0x3a4a55, roughness: 0.08, metalness: 0.3 }));
           w.position.set(x + k * 1.2, -1.1, z * 1.001);
           if (z < 0) w.rotation.y = Math.PI;
@@ -257,7 +257,7 @@ export class Train extends GameMap {
       chassis.position.set(x, -3.42, 0);
       this.deco(chassis, false);
       // dois truques (conjuntos de rodas) apoiados nos trilhos
-      for (const dx of [-2.4, 2.4]) {
+      for (const dx of [-WAGON_LEN / 2 + 1.4, WAGON_LEN / 2 - 1.4]) {
         const frame = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.3, 1.85), steelMat);
         frame.position.set(x + dx, -3.68, 0);
         this.deco(frame, false);
@@ -391,11 +391,12 @@ export class Train extends GameMap {
     this.tunnel.position.x = 999;
     this.deco(this.tunnel);
 
-    this.prop('caixa', new THREE.Vector3(-8, 0.5, 0.4));
-    this.prop('caixa', new THREE.Vector3(8.5, 0.5, -0.4), 0x8fbf5a);
-    this.prop('barril', new THREE.Vector3(2.5, 0.5, 0.6));
+    this.prop('caixa', new THREE.Vector3(WAGONS[0] + 1.5, 0.5, 0.5));
+    this.prop('caixa', new THREE.Vector3(WAGONS[2] - 1, 0.5, -0.5), 0x8fbf5a);
+    this.prop('barril', new THREE.Vector3(3, 0.5, 0.7));
+    this.prop('caixa', new THREE.Vector3(-3, 0.5, -0.7), 0x9c6b3a);
 
-    this.spawns = [new THREE.Vector3(-2.2, 0.08, 0.3), new THREE.Vector3(2.2, 0.08, -0.3), new THREE.Vector3(-8.6, 0.08, 0), new THREE.Vector3(8.6, 0.08, 0)];
+    this.spawns = [new THREE.Vector3(-2.8, 0.08, 0.4), new THREE.Vector3(2.8, 0.08, -0.4), new THREE.Vector3(WAGONS[0] - 1.5, 0.08, 0), new THREE.Vector3(WAGONS[2] + 1.5, 0.08, 0)];
   }
 
   /** Coloca os dormentes (deslocados pelo movimento do trem). */
